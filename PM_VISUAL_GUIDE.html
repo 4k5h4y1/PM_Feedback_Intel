@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cloudflare Platform — PM Visual Guide</title>
+<style>
+:root{
+  --bg:#0b0d12;--surface:#13161f;--surface2:#1c2030;--surface3:#242840;
+  --border:#2a2f45;--text:#e4e8f5;--muted:#7880a0;--dim:#3d4560;
+  --orange:#f6821f;--orange-dim:rgba(246,130,31,0.14);
+  --red:#f04444;--yellow:#f5a623;--green:#2ecc71;
+  --blue:#4f8ef7;--purple:#a78bfa;--teal:#2dd4bf;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.6;overflow-x:hidden}
+
+/* ── Nav ── */
+.topnav{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(11,13,18,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;z-index:1000}
+.nav-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px}
+.logo-sq{width:26px;height:26px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;box-shadow:0 0 12px rgba(246,130,31,0.5)}
+.nav-links{display:flex;gap:6px}
+.nav-link{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;font-family:var(--font);transition:all 0.2s;text-decoration:none}
+.nav-link:hover,.nav-link.active{background:var(--orange-dim);color:var(--orange)}
+
+/* ── Hero ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 60px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(246,130,31,0.08),transparent);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:var(--orange-dim);border:1px solid rgba(246,130,31,0.3);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:24px}
+.hero h1{font-size:clamp(32px,6vw,64px);font-weight:900;letter-spacing:-2px;line-height:1.05;margin-bottom:20px}
+.hero h1 span{background:linear-gradient(135deg,var(--orange),#faad3f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:18px;color:var(--muted);max-width:580px;line-height:1.6;margin-bottom:40px}
+.hero-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:48px}
+.chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.hero-scroll{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--dim);font-size:12px}
+.scroll-arrow{width:20px;height:20px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);animation:bounce 1.4s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:rotate(45deg) translateY(0)}50%{transform:rotate(45deg) translateY(5px)}}
+
+/* ── Sections ── */
+section{padding:80px 24px;max-width:1100px;margin:0 auto}
+.section-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:12px}
+.section-title{font-size:clamp(24px,4vw,40px);font-weight:800;letter-spacing:-1px;margin-bottom:12px}
+.section-desc{font-size:16px;color:var(--muted);max-width:580px;margin-bottom:48px}
+
+/* ── Product Cards ── */
+.products-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.product-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden}
+.product-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity 0.3s;border-radius:16px}
+.product-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.4)}
+.product-card:hover::before{opacity:1}
+.pc-workers::before{background:linear-gradient(135deg,rgba(246,130,31,0.06),transparent)}
+.pc-d1::before{background:linear-gradient(135deg,rgba(79,142,247,0.06),transparent)}
+.pc-ai::before{background:linear-gradient(135deg,rgba(167,139,250,0.06),transparent)}
+.pc-wf::before{background:linear-gradient(135deg,rgba(45,212,191,0.06),transparent)}
+.pc-kv::before{background:linear-gradient(135deg,rgba(245,166,35,0.06),transparent)}
+.pc-r2::before{background:linear-gradient(135deg,rgba(46,204,113,0.06),transparent)}
+.pc-access::before{background:linear-gradient(135deg,rgba(240,68,68,0.06),transparent)}
+.pc-icon{font-size:32px;margin-bottom:14px}
+.pc-name{font-size:18px;font-weight:800;margin-bottom:4px}
+.pc-tagline{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+.pc-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px}
+.pc-analogy{background:var(--surface2);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);border-left:3px solid}
+.pc-analogy strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.pc-stats{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap}
+.pc-stat{background:var(--surface3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--text)}
+
+/* ── Journey ── */
+#journey{background:linear-gradient(180deg,var(--bg),var(--surface),var(--bg));padding:80px 0}
+#journey section{max-width:800px}
+.journey-steps{position:relative}
+.journey-steps::before{content:'';position:absolute;left:24px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--orange),var(--purple),var(--teal));opacity:0.4}
+.journey-step{display:flex;gap:20px;margin-bottom:32px;opacity:0;transform:translateX(-20px);transition:all 0.5s}
+.journey-step.visible{opacity:1;transform:none}
+.step-node{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid;position:relative;z-index:1;background:var(--bg)}
+.step-body{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+.step-product{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.step-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.step-detail{font-size:13px;color:var(--muted);line-height:1.6}
+.step-output{background:var(--surface2);border-radius:8px;padding:10px;font-size:12px;font-family:monospace;color:var(--teal);margin-top:10px;white-space:pre-wrap;overflow-x:auto}
+
+/* ── Architecture ── */
+.arch-svg-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;overflow-x:auto}
+.arch-svg-wrap svg{max-width:100%;height:auto}
+
+/* ── Comparison ── */
+.compare-table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:12px;overflow:hidden}
+.compare-table th{padding:12px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);border-bottom:1px solid var(--border);background:var(--surface2)}
+.compare-table td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border2,#1e2235)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table tr:hover td{background:var(--surface2)}
+.tag{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600}
+.tag-green{background:rgba(46,204,113,0.12);color:var(--green)}
+.tag-red{background:rgba(240,68,68,0.12);color:var(--red)}
+.tag-yellow{background:rgba(245,166,35,0.12);color:var(--yellow)}
+
+/* ── Insight Cards ── */
+.insights-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.ic-q{font-size:13px;font-weight:700;color:var(--orange);margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.ic-a{font-size:13px;color:var(--muted);line-height:1.65}
+
+/* ── Score visual ── */
+.score-demo{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;margin-top:24px}
+.score-formula{font-family:monospace;font-size:13px;color:var(--teal);line-height:1.8;background:var(--bg);border-radius:8px;padding:16px;margin:12px 0}
+.score-bar-wrap{margin-top:16px}
+.score-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.score-lbl{font-size:12px;color:var(--muted);min-width:200px}
+.score-track{flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--orange),#faad3f);transition:width 1s cubic-bezier(.4,0,.2,1)}
+.score-val{font-size:13px;font-weight:700;min-width:36px;text-align:right}
+.score-badge{display:inline-block;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700}
+.score-crit{background:rgba(240,68,68,0.15);color:var(--red);border:1px solid rgba(240,68,68,0.3)}
+.score-hi{background:rgba(245,166,35,0.15);color:var(--yellow)}
+.score-lo{background:var(--surface3);color:var(--muted)}
+
+/* ── Quiz ── */
+.quiz-wrap{display:flex;flex-direction:column;gap:12px}
+.quiz-q{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.quiz-question{padding:16px 20px;font-size:14px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;transition:background 0.2s}
+.quiz-question:hover{background:var(--surface2)}
+.quiz-chevron{transition:transform 0.3s;color:var(--dim);font-size:12px}
+.quiz-answer{max-height:0;overflow:hidden;transition:max-height 0.4s ease,padding 0.3s}
+.quiz-answer.open{max-height:400px;padding:0 20px 16px}
+.quiz-answer p{font-size:13px;color:var(--muted);line-height:1.7;border-left:3px solid var(--orange);padding-left:14px}
+
+/* ── Footer ── */
+footer{border-top:1px solid var(--border);padding:32px 24px;text-align:center;color:var(--dim);font-size:12px}
+footer a{color:var(--orange);text-decoration:none}
+
+/* ── Animations ── */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(246,130,31,0.3)}50%{box-shadow:0 0 40px rgba(246,130,31,0.6)}}
+.float{animation:float 3s ease-in-out infinite}
+
+/* ── Data flow animation ── */
+.flow-demo{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin-top:32px;position:relative;overflow:hidden}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;margin-bottom:8px}
+.flow-node{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;min-width:100px;transition:all 0.3s;position:relative}
+.flow-node.active{border-color:var(--orange);background:var(--orange-dim);transform:scale(1.05)}
+.flow-node.done{border-color:var(--green);opacity:0.7}
+.flow-node-icon{font-size:24px}
+.flow-node-name{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.flow-arrow{font-size:18px;color:var(--dim);padding:0 4px;flex-shrink:0}
+.flow-arrow.active{color:var(--orange)}
+.flow-btn{padding:10px 24px;border-radius:8px;border:none;background:var(--orange);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.2s;margin-top:20px}
+.flow-btn:hover{background:#e5751a}
+.flow-status{margin-top:16px;padding:12px 16px;border-radius:8px;background:var(--surface2);font-size:13px;color:var(--muted);min-height:44px;transition:all 0.3s}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="topnav">
+  <div class="nav-logo">
+    <div class="logo-sq">S</div>
+    <span>SignalDesk — PM Visual Guide</span>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="#products">Products</a>
+    <a class="nav-link" href="#journey">Journey</a>
+    <a class="nav-link" href="#architecture">Architecture</a>
+    <a class="nav-link" href="#scoring">Scoring</a>
+    <a class="nav-link" href="#compare">Compare</a>
+    <a class="nav-link" href="#quiz">Interview</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">⚡ For Product Managers</div>
+  <h1>The Cloudflare Platform<br><span>Explained Through SignalDesk</span></h1>
+  <p class="hero-sub">Seven Cloudflare products. One application. Everything a PM needs to know — with visual explanations, analogies, and interactive demos.</p>
+  <div class="hero-chips">
+    <div class="chip">⚡ Workers</div>
+    <div class="chip">🗄️ D1 Database</div>
+    <div class="chip">🤖 Workers AI</div>
+    <div class="chip">🔄 Workflows</div>
+    <div class="chip">📌 KV Cache</div>
+    <div class="chip">📦 R2 Storage</div>
+    <div class="chip">🔒 Zero Trust</div>
+  </div>
+  <div class="hero-scroll">
+    <span>Scroll to explore</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</div>
+
+<!-- Products -->
+<div id="products" style="background:var(--surface);padding:80px 24px">
+<section>
+  <div class="section-badge">The Cast</div>
+  <h2 class="section-title">Seven Products, One Application</h2>
+  <p class="section-desc">Each Cloudflare product in SignalDesk has a distinct role. Hover any card to explore.</p>
+
+  <div class="products-grid">
+
+    <div class="product-card pc-workers" style="border-color:rgba(246,130,31,0.3)">
+      <div class="pc-icon">⚡</div>
+      <div class="pc-name" style="color:var(--orange)">Workers</div>
+      <div class="pc-tagline" style="color:var(--orange)">The Runtime</div>
+      <div class="pc-desc">Your application code runs here — on Cloudflare's global network of 300+ servers. Every dashboard load, every API call, every request is handled by a Worker.</div>
+      <div class="pc-analogy" style="border-color:var(--orange)">
+        <strong style="color:var(--orange)">The Analogy</strong>
+        Like a restaurant kitchen that only turns on when a customer orders — and can serve 10,000 customers simultaneously without any extra setup.
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">300+ locations</span>
+        <span class="pc-stat">&lt;1ms startup</span>
+        <span class="pc-stat">Pay per request</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-d1" style="border-color:rgba(79,142,247,0.3)">
+      <div class="pc-icon">🗄️</div>
+      <div class="pc-name" style="color:var(--blue)">D1 Database</div>
+      <div class="pc-tagline" style="color:var(--blue)">The Permanent Record</div>
+      <div class="pc-desc">All 60 feedback records and their AI analyses live here. Two tables: raw feedback (immutable) and analysis (replaceable). Complex queries supported via SQL.</div>
+      <div class="pc-analogy" style="border-color:var(--blue)">
+        <strong style="color:var(--blue)">The Analogy</strong>
+        Two filing cabinets: one for original documents (never altered), one for analyst reports (can be rewritten if you hire a better analyst).
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">SQLite-compatible</span>
+        <span class="pc-stat">2 tables, 40 columns</span>
+        <span class="pc-stat">Serverless</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-ai" style="border-color:rgba(167,139,250,0.3)">
+      <div class="pc-icon">🤖</div>
+      <div class="pc-name" style="color:var(--purple)">Workers AI</div>
+      <div class="pc-tagline" style="color:var(--purple)">The Analyst</div>
+      <div class="pc-desc">Runs Llama 3.1-8B on Cloudflare's own GPUs. Reads raw feedback and returns 22 structured fields: sentiment, urgency, competitor, PII, themes, and more. No external API.</div>
+      <div class="pc-analogy" style="border-color:var(--purple)">
+        <strong style="color:var(--purple)">The Analogy</strong>
+        An in-house analyst who reads every piece of feedback and hands you back a completed, structured assessment form — in 2 seconds flat.
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">Llama 3.1-8B</span>
+        <span class="pc-stat">22 output fields</span>
+        <span class="pc-stat">~2s per record</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-wf" style="border-color:rgba(45,212,191,0.3)">
+      <div class="pc-icon">🔄</div>
+      <div class="pc-name" style="color:var(--teal)">Workflows</div>
+      <div class="pc-tagline" style="color:var(--teal)">The Reliable Orchestrator</div>
+      <div class="pc-desc">A 6-step durable pipeline that processes each new feedback record. If any step fails, it retries automatically. State is saved between steps — no data loss ever.</div>
+      <div class="pc-analogy" style="border-color:var(--teal)">
+        <strong style="color:var(--teal)">The Analogy</strong>
+        A checklist that saves itself after each tick — if the power goes out halfway through, you pick up exactly where you left off.
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">6 steps</span>
+        <span class="pc-stat">Auto-retry</span>
+        <span class="pc-stat">Durable state</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-kv" style="border-color:rgba(245,166,35,0.3)">
+      <div class="pc-icon">📌</div>
+      <div class="pc-name" style="color:var(--yellow)">KV Store</div>
+      <div class="pc-tagline" style="color:var(--yellow)">The Speed Cache</div>
+      <div class="pc-desc">Stores pre-computed results for 5 minutes. Dashboard stats, segment data, and the AI digest are cached here. Turns 200ms D1 queries into 5ms KV reads.</div>
+      <div class="pc-analogy" style="border-color:var(--yellow)">
+        <strong style="color:var(--yellow)">The Analogy</strong>
+        A sticky note on the fridge: instead of cooking dinner every time someone is hungry, the note says "pizza, ready at 7pm, expires in 5 minutes."
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">~5ms reads</span>
+        <span class="pc-stat">5min TTL (stats)</span>
+        <span class="pc-stat">1hr TTL (digest)</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-r2" style="border-color:rgba(46,204,113,0.3)">
+      <div class="pc-icon">📦</div>
+      <div class="pc-name" style="color:var(--green)">R2 Storage</div>
+      <div class="pc-tagline" style="color:var(--green)">The Archive</div>
+      <div class="pc-desc">Stores full raw payloads (Zoom transcripts, lengthy emails, sales call notes) long-term. D1 just stores a reference pointer. S3-compatible, but with zero egress fees.</div>
+      <div class="pc-analogy" style="border-color:var(--green)">
+        <strong style="color:var(--green)">The Analogy</strong>
+        The archive room: the filing cabinet holds a card saying "see box 47 in archive room." The 500-page document lives in the archive, not in the cabinet.
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">$0 egress fees</span>
+        <span class="pc-stat">S3-compatible</span>
+        <span class="pc-stat">Unlimited size</span>
+      </div>
+    </div>
+
+    <div class="product-card pc-access" style="border-color:rgba(240,68,68,0.3)">
+      <div class="pc-icon">🔒</div>
+      <div class="pc-name" style="color:var(--red)">Access / Zero Trust</div>
+      <div class="pc-tagline" style="color:var(--red)">The Identity Gate</div>
+      <div class="pc-desc">Blocks all unauthenticated traffic before it reaches the Worker. Integrates with Google/GitHub SSO. Optional WARP device posture check for sensitive content.</div>
+      <div class="pc-analogy" style="border-color:var(--red)">
+        <strong style="color:var(--red)">The Analogy</strong>
+        The security guard who checks your badge at the building entrance — every time, regardless of whether you were here yesterday.
+      </div>
+      <div class="pc-stats">
+        <span class="pc-stat">Free ≤50 users</span>
+        <span class="pc-stat">SSO + WARP</span>
+        <span class="pc-stat">No code changes</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
+
+<!-- Journey -->
+<div id="journey" style="padding:80px 24px">
+<section style="max-width:780px">
+  <div class="section-badge">The Story</div>
+  <h2 class="section-title">Follow One Feedback Record</h2>
+  <p class="section-desc">Watch a single piece of feedback travel through every Cloudflare product in SignalDesk — from raw text to PM insight.</p>
+
+  <!-- Interactive Flow Demo -->
+  <div class="flow-demo">
+    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:20px;text-transform:uppercase;letter-spacing:.8px">Interactive: Click to step through the pipeline</div>
+    <div class="flow-row" id="flow-nodes">
+      <div class="flow-node" id="fn-0"><div class="flow-node-icon">📧</div><div class="flow-node-name">Feedback</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-1"><div class="flow-node-icon">⚡</div><div class="flow-node-name">Workers</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-2"><div class="flow-node-icon">🔄</div><div class="flow-node-name">Workflows</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-3"><div class="flow-node-icon">🤖</div><div class="flow-node-name">Workers AI</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-4"><div class="flow-node-icon">🗄️</div><div class="flow-node-name">D1</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-5"><div class="flow-node-icon">📦</div><div class="flow-node-name">R2</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-6"><div class="flow-node-icon">📌</div><div class="flow-node-name">KV</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" id="fn-7"><div class="flow-node-icon">🔔</div><div class="flow-node-name">Slack</div></div>
+    </div>
+    <div class="flow-status" id="flow-status">Press the button below to start the walkthrough ↓</div>
+    <button class="flow-btn" id="flow-btn" onclick="nextStep()">▶ Start Journey</button>
+  </div>
+
+  <div class="journey-steps" id="journey-steps" style="margin-top:48px">
+
+    <div class="journey-step" data-step="0">
+      <div class="step-node" style="border-color:var(--orange);color:var(--orange)">📧</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--orange)">Input</div>
+        <div class="step-title">Feedback arrives</div>
+        <div class="step-detail">A sales rep submits an email from an enterprise customer expressing concern about moving to AWS Lambda@Edge due to EU cold start performance. This hits <code>POST /api/feedback</code>.</div>
+        <div class="step-output">{
+  source_type: "email",
+  raw_text: "We're evaluating AWS Lambda@Edge...",
+  stakeholder_type: "customer"
+}</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="1">
+      <div class="step-node" style="border-color:var(--orange);color:var(--orange)">⚡</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--orange)">Workers</div>
+        <div class="step-title">Receptionist takes the request</div>
+        <div class="step-detail">The Worker receives the request, validates the input (is <code>raw_text</code> present? is <code>source_type</code> valid?), assigns an ID, inserts a minimal record into D1 with status "pending", and triggers the Workflow. It responds <strong>immediately</strong> with 201 — the caller doesn't wait for AI.</div>
+        <div class="step-output">← 201 Created
+{ id: "fb-047", status: "pending", workflow_instance_id: "wf-..." }</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="2">
+      <div class="step-node" style="border-color:var(--teal);color:var(--teal)">🔄</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--teal)">Workflows</div>
+        <div class="step-title">Project manager takes over</div>
+        <div class="step-detail">The Workflow begins Step 1: idempotency check (has fb-047 already been analyzed?). If not, proceeds. Each step's result is saved to durable storage — if anything crashes here, the Workflow resumes from the last completed step, not from scratch.</div>
+        <div class="step-output">Step 1 ✓ — record exists, status=pending, proceeding
+Step 2 → sending to Workers AI...</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="3">
+      <div class="step-node" style="border-color:var(--purple);color:var(--purple)">🤖</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--purple)">Workers AI (Llama 3.1-8B)</div>
+        <div class="step-title">The analyst reads the feedback</div>
+        <div class="step-detail">A carefully crafted prompt sends the raw text to Llama 3.1-8B running on Cloudflare's GPU infrastructure. The model is instructed to return <em>only valid JSON with no markdown</em>. 22 fields come back in ~2 seconds. The parser validates every field.</div>
+        <div class="step-output">{
+  sentiment: "negative",      urgency: 9,
+  feedback_type: "churn_risk",
+  competitor_mentioned: true,
+  competitor_name: "aws_lambda_edge",
+  comparison_type: "evaluating",
+  customer_segment: "enterprise",
+  pii_detected: true,
+  visibility_scope: "restricted",
+  themes: ["cold_start_latency","eu_compliance"],
+  confidence: 0.96
+}</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="4">
+      <div class="step-node" style="border-color:var(--blue);color:var(--blue)">🗄️</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--blue)">D1 Database</div>
+        <div class="step-title">Analysis stored, status updated</div>
+        <div class="step-detail">All 22 fields are written to the <code>analysis</code> table. The <code>feedback</code> table's <code>analysis_status</code> is updated from "pending" to "analyzed". A <code>redacted_summary</code> is generated with PII replaced — the customer's email address is stripped out.</div>
+        <div class="step-output">INSERT INTO analysis (feedback_id, urgency, ...) → ✓
+UPDATE feedback SET analysis_status='analyzed' → ✓
+redacted_summary: "Enterprise churn risk — EU performance..."</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="5">
+      <div class="step-node" style="border-color:var(--green);color:var(--green)">📦</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--green)">R2 Object Storage</div>
+        <div class="step-title">Full text archived</div>
+        <div class="step-detail">The complete original email (which may contain sensitive details) is archived to R2 under a unique key. D1 stores only the reference. The 500-word email never bloats the SQL database — just a pointer.</div>
+        <div class="step-output">R2.put("email/fb-047-2025-03-01.txt", fullEmailBody) → ✓
+D1.feedback.raw_payload_ref = "email/fb-047-2025-03-01.txt"</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="6">
+      <div class="step-node" style="border-color:var(--yellow);color:var(--yellow)">📌</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--yellow)">KV Cache</div>
+        <div class="step-title">Stats cache invalidated</div>
+        <div class="step-detail">The old stats cache (which didn't include fb-047) is deleted. The next time any PM loads the dashboard, fresh stats are computed from D1 and cached for 5 minutes. Everyone sees the updated competitor count and high-urgency count.</div>
+        <div class="step-output">KV.delete("dashboard:stats:v1") → ✓
+KV.delete("dashboard:segments:v1") → ✓
+Next dashboard load will recompute from D1</div>
+      </div>
+    </div>
+
+    <div class="journey-step" data-step="7">
+      <div class="step-node" style="border-color:var(--red);color:var(--red)">🔔</div>
+      <div class="step-body">
+        <div class="step-product" style="color:var(--red)">Slack Alert</div>
+        <div class="step-title">PM notified immediately</div>
+        <div class="step-detail">Urgency is 9 — that's critical. The Workflow fires a Slack webhook with a structured Block Kit message: urgency level, product area, competitor, PM owner (resolved from product category), and a link back to SignalDesk. PM sees it in under 10 seconds.</div>
+        <div class="step-output">🚨 CRITICAL — Urgency 9/10
+Product: Workers  |  Source: Email
+Competitor: AWS Lambda@Edge
+PM Owner: workers_team
+"Enterprise churn risk — EU performance..."
+[View in SignalDesk →]</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
+
+<!-- Architecture -->
+<div id="architecture" style="background:var(--surface);padding:80px 24px">
+<section>
+  <div class="section-badge">The Map</div>
+  <h2 class="section-title">Architecture Diagram</h2>
+  <p class="section-desc">How every component connects. Read left to right: request flow goes down; data storage goes right.</p>
+
+  <div class="arch-svg-wrap">
+    <svg viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:-apple-system,sans-serif">
+      <!-- Background -->
+      <rect width="900" height="500" fill="#13161f"/>
+
+      <!-- Zone labels -->
+      <text x="20" y="30" fill="#3d4560" font-size="10" font-weight="700" letter-spacing="1">USER</text>
+      <text x="220" y="30" fill="#3d4560" font-size="10" font-weight="700" letter-spacing="1">EDGE / WORKERS</text>
+      <text x="520" y="30" fill="#3d4560" font-size="10" font-weight="700" letter-spacing="1">CLOUDFLARE SERVICES</text>
+
+      <!-- Zone dividers -->
+      <line x1="200" y1="10" x2="200" y2="490" stroke="#2a2f45" stroke-width="1" stroke-dasharray="4,4"/>
+      <line x1="500" y1="10" x2="500" y2="490" stroke="#2a2f45" stroke-width="1" stroke-dasharray="4,4"/>
+
+      <!-- User / Browser -->
+      <rect x="20" y="60" width="140" height="60" rx="10" fill="#1c2030" stroke="#2a2f45" stroke-width="1.5"/>
+      <text x="90" y="88" fill="#e4e8f5" font-size="22" text-anchor="middle">🌐</text>
+      <text x="90" y="108" fill="#7880a0" font-size="11" text-anchor="middle" font-weight="600">Browser / PM</text>
+
+      <!-- Access -->
+      <rect x="220" y="60" width="140" height="60" rx="10" fill="#1c2030" stroke="rgba(240,68,68,0.4)" stroke-width="1.5"/>
+      <text x="290" y="88" fill="#e4e8f5" font-size="22" text-anchor="middle">🔒</text>
+      <text x="290" y="108" fill="#f04444" font-size="11" text-anchor="middle" font-weight="600">Access / Zero Trust</text>
+
+      <!-- Workers -->
+      <rect x="220" y="180" width="140" height="60" rx="10" fill="#1c2030" stroke="rgba(246,130,31,0.4)" stroke-width="1.5"/>
+      <text x="290" y="208" fill="#e4e8f5" font-size="22" text-anchor="middle">⚡</text>
+      <text x="290" y="228" fill="#f6821f" font-size="11" text-anchor="middle" font-weight="600">Workers (Hono)</text>
+
+      <!-- Workflows -->
+      <rect x="220" y="300" width="140" height="60" rx="10" fill="#1c2030" stroke="rgba(45,212,191,0.4)" stroke-width="1.5"/>
+      <text x="290" y="328" fill="#e4e8f5" font-size="22" text-anchor="middle">🔄</text>
+      <text x="290" y="348" fill="#2dd4bf" font-size="11" text-anchor="middle" font-weight="600">Workflows (6 steps)</text>
+
+      <!-- D1 -->
+      <rect x="530" y="60" width="130" height="60" rx="10" fill="#1c2030" stroke="rgba(79,142,247,0.4)" stroke-width="1.5"/>
+      <text x="595" y="88" fill="#e4e8f5" font-size="22" text-anchor="middle">🗄️</text>
+      <text x="595" y="108" fill="#4f8ef7" font-size="11" text-anchor="middle" font-weight="600">D1 Database</text>
+
+      <!-- Workers AI -->
+      <rect x="530" y="180" width="130" height="60" rx="10" fill="#1c2030" stroke="rgba(167,139,250,0.4)" stroke-width="1.5"/>
+      <text x="595" y="208" fill="#e4e8f5" font-size="22" text-anchor="middle">🤖</text>
+      <text x="595" y="228" fill="#a78bfa" font-size="11" text-anchor="middle" font-weight="600">Workers AI</text>
+
+      <!-- KV -->
+      <rect x="530" y="300" width="130" height="60" rx="10" fill="#1c2030" stroke="rgba(245,166,35,0.4)" stroke-width="1.5"/>
+      <text x="595" y="328" fill="#e4e8f5" font-size="22" text-anchor="middle">📌</text>
+      <text x="595" y="348" fill="#f5a623" font-size="11" text-anchor="middle" font-weight="600">KV Cache</text>
+
+      <!-- R2 -->
+      <rect x="700" y="180" width="130" height="60" rx="10" fill="#1c2030" stroke="rgba(46,204,113,0.4)" stroke-width="1.5"/>
+      <text x="765" y="208" fill="#e4e8f5" font-size="22" text-anchor="middle">📦</text>
+      <text x="765" y="228" fill="#2ecc71" font-size="11" text-anchor="middle" font-weight="600">R2 Storage</text>
+
+      <!-- Slack -->
+      <rect x="700" y="300" width="130" height="60" rx="10" fill="#1c2030" stroke="#2a2f45" stroke-width="1.5"/>
+      <text x="765" y="328" fill="#e4e8f5" font-size="22" text-anchor="middle">🔔</text>
+      <text x="765" y="348" fill="#7880a0" font-size="11" text-anchor="middle" font-weight="600">Slack Alerts</text>
+
+      <!-- Arrows -->
+      <!-- Browser → Access -->
+      <path d="M160 90 L220 90" stroke="#f04444" stroke-width="1.5" marker-end="url(#arr-red)" fill="none"/>
+      <text x="190" y="84" fill="#7880a0" font-size="9" text-anchor="middle">HTTPS</text>
+
+      <!-- Access → Workers -->
+      <path d="M290 120 L290 180" stroke="#f6821f" stroke-width="1.5" marker-end="url(#arr-orange)" fill="none"/>
+      <text x="304" y="155" fill="#7880a0" font-size="9">✓ authn</text>
+
+      <!-- Workers → D1 (read/write) -->
+      <path d="M360 200 L530 90" stroke="#4f8ef7" stroke-width="1.5" marker-end="url(#arr-blue)" fill="none" stroke-dasharray="5,3"/>
+      <text x="445" y="135" fill="#7880a0" font-size="9" transform="rotate(-26,445,135)">read / write</text>
+
+      <!-- Workers → KV (cache) -->
+      <path d="M360 220 L530 320" stroke="#f5a623" stroke-width="1.5" marker-end="url(#arr-yellow)" fill="none" stroke-dasharray="5,3"/>
+      <text x="432" y="285" fill="#7880a0" font-size="9" transform="rotate(35,432,285)">cache get/set</text>
+
+      <!-- Workers → Workflows -->
+      <path d="M290 240 L290 300" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#arr-teal)" fill="none"/>
+      <text x="304" y="275" fill="#7880a0" font-size="9">trigger</text>
+
+      <!-- Workflows → Workers AI -->
+      <path d="M360 320 L530 210" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr-purple)" fill="none"/>
+      <text x="447" y="255" fill="#7880a0" font-size="9" transform="rotate(-30,447,255)">analyze</text>
+
+      <!-- Workflows → D1 -->
+      <path d="M360 310 L530 100" stroke="#4f8ef7" stroke-width="1.5" marker-end="url(#arr-blue)" fill="none" stroke-dasharray="3,3"/>
+
+      <!-- Workflows → R2 -->
+      <path d="M360 330 L700 210" stroke="#2ecc71" stroke-width="1.5" marker-end="url(#arr-green)" fill="none"/>
+      <text x="535" y="260" fill="#7880a0" font-size="9">archive</text>
+
+      <!-- Workflows → Slack -->
+      <path d="M360 350 L700 330" stroke="#7880a0" stroke-width="1.5" marker-end="url(#arr-gray)" fill="none"/>
+      <text x="535" y="350" fill="#7880a0" font-size="9">alert (urgency≥8)</text>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arr-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#f04444"/></marker>
+        <marker id="arr-orange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#f6821f"/></marker>
+        <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker>
+        <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#a78bfa"/></marker>
+        <marker id="arr-teal" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2dd4bf"/></marker>
+        <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#f5a623"/></marker>
+        <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2ecc71"/></marker>
+        <marker id="arr-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7880a0"/></marker>
+      </defs>
+    </svg>
+  </div>
+</section>
+</div>
+
+<!-- Scoring -->
+<div id="scoring" style="padding:80px 24px">
+<section>
+  <div class="section-badge">The Formula</div>
+  <h2 class="section-title">Weighted Criticality Score</h2>
+  <p class="section-desc">The dashboard's most PM-friendly innovation: a transparent 0–100 score that combines urgency, source, customer segment, and feedback type to surface what truly matters most.</p>
+
+  <div class="score-demo">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">The Formula</div>
+    <div class="score-formula">score = urgency × 10 × source_weight × segment_weight × type_weight
+       + security_bonus + competitor_bonus
+
+clamp to 0–100</div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 12px;text-transform:uppercase;letter-spacing:.8px">Live Examples — Drag to compare</div>
+
+    <div class="score-bar-wrap" id="score-examples">
+
+      <div class="score-row" data-score="100">
+        <div class="score-lbl">Sales · Churn Risk · Enterprise · Urgency 9</div>
+        <div class="score-track"><div class="score-fill" style="width:0%"></div></div>
+        <div class="score-val">100</div>
+        <div class="score-badge score-crit">Critical</div>
+      </div>
+
+      <div class="score-row" data-score="84">
+        <div class="score-lbl">Email · Bug · Enterprise · Urgency 8</div>
+        <div class="score-track"><div class="score-fill" style="width:0%"></div></div>
+        <div class="score-val">84</div>
+        <div class="score-badge score-crit">Critical</div>
+      </div>
+
+      <div class="score-row" data-score="71">
+        <div class="score-lbl">Support · Complaint · SMB · Urgency 7</div>
+        <div class="score-track"><div class="score-fill" style="width:0%"></div></div>
+        <div class="score-val">71</div>
+        <div class="score-badge score-hi">High</div>
+      </div>
+
+      <div class="score-row" data-score="46">
+        <div class="score-lbl">GitHub · Feature Request · Startup · Urgency 5</div>
+        <div class="score-track"><div class="score-fill" style="width:0%"></div></div>
+        <div class="score-val">46</div>
+        <div class="score-badge score-hi">High</div>
+      </div>
+
+      <div class="score-row" data-score="13">
+        <div class="score-lbl">Twitter · Praise · Startup · Urgency 3</div>
+        <div class="score-track"><div class="score-fill" style="width:0%"></div></div>
+        <div class="score-val">13</div>
+        <div class="score-badge score-lo">Standard</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:20px;padding:14px;background:var(--surface3);border-radius:8px;font-size:13px;color:var(--muted)">
+      <strong style="color:var(--orange)">PM Insight:</strong> A Twitter praise from a startup with urgency 3 scores 13. A Sales churn-risk from an enterprise customer scores 100. The formula makes this obvious without anyone having to read every record manually.
+    </div>
+  </div>
+
+</section>
+</div>
+
+<!-- Compare -->
+<div id="compare" style="background:var(--surface);padding:80px 24px">
+<section>
+  <div class="section-badge">The Decision</div>
+  <h2 class="section-title">Cloudflare vs. Alternatives</h2>
+  <p class="section-desc">When should a PM recommend Cloudflare vs. AWS vs. a traditional setup?</p>
+
+  <div style="overflow-x:auto">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Need</th>
+        <th>Cloudflare</th>
+        <th>AWS</th>
+        <th>Self-hosted</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Time to first deploy</strong></td>
+        <td><span class="tag tag-green">Minutes</span></td>
+        <td><span class="tag tag-yellow">Hours–Days</span></td>
+        <td><span class="tag tag-red">Days–Weeks</span></td>
+      </tr>
+      <tr>
+        <td><strong>Infrastructure management</strong></td>
+        <td><span class="tag tag-green">Zero</span></td>
+        <td><span class="tag tag-yellow">Some (ECS, ALB, etc.)</span></td>
+        <td><span class="tag tag-red">Full (OS, patches, scaling)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Global edge presence</strong></td>
+        <td><span class="tag tag-green">300+ PoPs, automatic</span></td>
+        <td><span class="tag tag-yellow">~30 regions, configure manually</span></td>
+        <td><span class="tag tag-red">Wherever you deploy</span></td>
+      </tr>
+      <tr>
+        <td><strong>Idle cost (low traffic)</strong></td>
+        <td><span class="tag tag-green">$0 (pay per request)</span></td>
+        <td><span class="tag tag-yellow">$30-200/month minimum</span></td>
+        <td><span class="tag tag-red">Server running 24/7</span></td>
+      </tr>
+      <tr>
+        <td><strong>File storage egress</strong></td>
+        <td><span class="tag tag-green">$0 (R2)</span></td>
+        <td><span class="tag tag-red">$0.09/GB (S3)</span></td>
+        <td><span class="tag tag-yellow">Varies</span></td>
+      </tr>
+      <tr>
+        <td><strong>Auth / Zero Trust</strong></td>
+        <td><span class="tag tag-green">Native, no code</span></td>
+        <td><span class="tag tag-yellow">Cognito (complex setup)</span></td>
+        <td><span class="tag tag-red">Build or buy separately</span></td>
+      </tr>
+      <tr>
+        <td><strong>AI inference</strong></td>
+        <td><span class="tag tag-green">Built-in (Workers AI)</span></td>
+        <td><span class="tag tag-yellow">SageMaker (complex)</span></td>
+        <td><span class="tag tag-red">GPU servers + ops</span></td>
+      </tr>
+      <tr>
+        <td><strong>Vendor lock-in</strong></td>
+        <td><span class="tag tag-yellow">Moderate (Workers API)</span></td>
+        <td><span class="tag tag-yellow">High (Lambda, proprietary)</span></td>
+        <td><span class="tag tag-green">None</span></td>
+      </tr>
+      <tr>
+        <td><strong>Best for</strong></td>
+        <td>Fast-moving teams, internal tools, edge-first apps</td>
+        <td>Enterprise, existing AWS investment, complex ML</td>
+        <td>Strict data residency, legacy integrations</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- PM Insights -->
+  <div style="margin-top:40px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">PM Insight Cards</div>
+    <div class="insights-grid">
+      <div class="insight-card">
+        <div class="ic-q">💡 "Why not just use AWS? Everyone uses AWS."</div>
+        <div class="ic-a">AWS is excellent — but it requires significant DevOps investment. For an internal PM tool that needs to ship fast, Cloudflare eliminates the need for load balancers, auto-scaling groups, RDS setup, and IAM configuration. The full stack (database, cache, AI, auth, runtime) is integrated and pre-configured.</div>
+      </div>
+      <div class="insight-card">
+        <div class="ic-q">💡 "Is Cloudflare just a CDN company?"</div>
+        <div class="ic-a">That's their origin (2010), but today the developer platform (Workers, D1, KV, R2, AI) is their fastest-growing segment. They're competing directly with AWS Lambda, DynamoDB, S3, and SageMaker. The CDN/security products still generate most revenue, but the developer platform is the strategic bet.</div>
+      </div>
+      <div class="insight-card">
+        <div class="ic-q">💡 "What's the biggest risk of betting on Cloudflare?"</div>
+        <div class="ic-a">Platform coupling. Workers code is written to Cloudflare's APIs — not portable to Lambda. D1 SQL is exportable (it's SQLite), but Workflows and Workers AI would need to be rewritten. For a product at early stage, speed beats portability. At scale, the switching cost grows. This is a deliberate PM trade-off to make consciously.</div>
+      </div>
+      <div class="insight-card">
+        <div class="ic-q">💡 "How does pricing scale as we grow?"</div>
+        <div class="ic-a">Workers: $0.50 per million requests. At 1,000 requests/day (internal tool), that's essentially free. D1: $0.001 per 1,000 reads. KV: $0.50 per million reads. The cost profile is extremely favorable for low-to-medium traffic internal tools and scales linearly, not exponentially.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+
+<!-- Quiz -->
+<div id="quiz" style="padding:80px 24px">
+<section>
+  <div class="section-badge">Interview Prep</div>
+  <h2 class="section-title">Questions & Answers</h2>
+  <p class="section-desc">Click any question to reveal the PM-framed answer. These cover what you're likely to be asked — and what you should ask.</p>
+
+  <div class="quiz-wrap">
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>Why did you use Cloudflare Workers instead of a traditional server?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Three reasons. First, time-to-ship: the entire infrastructure stack (database, cache, AI, orchestration, auth) is pre-integrated — no weeks of DevOps setup. Second, cost alignment: pay-per-request matches an internal tool's variable usage pattern far better than paying for a server running 24/7. Third, global performance: Workers runs at 300+ edge locations automatically — the PM in Singapore gets the same response time as the one in London. The trade-off is platform coupling: Workers code isn't portable to AWS Lambda without rewriting. For a product at this stage, speed of execution wins.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>How does your AI analysis work? What makes it reliable?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Workers AI runs Llama 3.1-8B on Cloudflare's own GPU infrastructure — no external dependency on OpenAI or Anthropic. Each feedback record is processed with structured extraction: one carefully engineered prompt goes in, one JSON object with 22 typed fields comes out. This isn't a chatbot — it's a classifier. Reliability comes from two mechanisms: (1) the parser validates every field and applies safe defaults if the AI returns unexpected output — bad AI doesn't crash the system, it degrades gracefully; (2) each analysis includes a confidence score, and low-confidence records can be flagged for manual review. At 96% average confidence across the seed data, the system is production-quality.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>What happens if Cloudflare has an outage?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Cloudflare's network operates at 99.99%+ uptime — higher than a single-region AWS deployment. But the more precise answer is about individual service failure modes. If Workers AI is briefly unavailable, Workflows retries the analysis step automatically (2 retry attempts with backoff). If that also fails, the feedback is stored with status "failed" and can be re-queued. If D1 is slow, the Worker can still serve cached stats from KV. No single point of failure takes down the entire product. The fallback path in the Worker even runs AI synchronously if the Workflow system itself is unavailable — three layers of resilience.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>How does the PII handling work — and why does it matter for PMs?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Workers AI detects PII (emails, IPs, API keys, names) during analysis and flags the record. The parser immediately generates a redacted_summary where PII is replaced with tokens like [REDACTED_EMAIL]. This happens in the analysis pipeline — not at display time. This means PII never appears in any API response, regardless of which dashboard view or filter you use. Critically, this is enforced server-side: even if a developer inspects network traffic in browser DevTools, they only see redacted content. For PMs, this means you can share screenshots of the dashboard in Slack or presentations without accidentally leaking customer contact information.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>How would you scale this to 100,000 feedback records?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Five changes: (1) Move theme aggregation from JavaScript (loads all records into memory) to SQL GROUP BY — this is the most urgent bottleneck. (2) Extend KV caching to cover more expensive queries (themes table, competitor table). (3) Add composite D1 indexes for the most common filter combinations (e.g., urgency + sentiment + product_category). (4) Add read-only D1 replicas for dashboard queries, keeping the primary for writes. (5) Consider archiving records older than 90 days to R2 in JSON format and only keeping recent records in the active D1 for fast dashboard queries. The architecture doesn't need to change fundamentally — these are all optimization layers on the existing design.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>Why did you choose not to implement geospatial features?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>Evaluated it and deliberately decided against it. There's no structured geographic field in the schema — "eu-west" appears in the raw text of 2-3 records out of 60, which isn't a queryable attribute. Building a geographic view on substring matching (LIKE '%eu%') would be decorative rather than meaningful, and potentially misleading. The segment-based breakdown (Enterprise / Mid-Market / Emerging) delivers more actionable PM intelligence because it's backed by structured, AI-classified data. A geospatial view is on the V2 roadmap — but it requires adding a location field at the ingestion layer first, not retrofitting it to existing data.</p>
+      </div>
+    </div>
+
+    <div class="quiz-q">
+      <div class="quiz-question" onclick="toggleQuiz(this)">
+        <span>What would V2 of SignalDesk look like?</span>
+        <span class="quiz-chevron">▼</span>
+      </div>
+      <div class="quiz-answer">
+        <p>V2 closes the loop: V1 surfaces signal; V2 enables action. Specifically: (1) Two-way Slack integration — PM can respond to a feedback card from Slack and the response is logged in SignalDesk. (2) Jira/Linear integration — one click to convert a high-urgency record into a tracked issue. (3) Semantic deduplication using Cloudflare Vectorize (vector database) — identify that "Workers cold start" and "slow startup times" are the same issue even with different wording. (4) Trend alerting — background Workflow that runs nightly and sends a Slack summary if any theme volume increased >40% week-over-week. (5) Multi-tenant support — separate the data layer per customer so multiple companies can use SignalDesk as a SaaS product.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
+
+<footer>
+  <p>Built with Cloudflare Workers · D1 · KV · R2 · Workers AI · Workflows · Access</p>
+  <p style="margin-top:6px">Live at <a href="https://signaldesk.ashar-0a8.workers.dev" target="_blank">signaldesk.ashar-0a8.workers.dev</a> · Source on <a href="https://github.com/4k5h4y1/PM_Feedback_Intel" target="_blank">GitHub</a></p>
+</footer>
+
+<script>
+// ── Journey stepper ──────────────────────────────────────────────────
+var flowStep = -1;
+var flowSteps = [
+  {node:0, msg:"📧 Raw feedback text submitted via POST /api/feedback"},
+  {node:1, msg:"⚡ Workers receives the request, validates input, saves to D1 with status 'pending', triggers Workflow → responds 201 immediately"},
+  {node:2, msg:"🔄 Workflows begins the 6-step pipeline. State is saved after each step — crash-safe."},
+  {node:3, msg:"🤖 Workers AI (Llama 3.1-8B) analyzes the text → returns 22 structured fields including urgency, sentiment, competitor, PII flags"},
+  {node:4, msg:"🗄️ D1 stores the full analysis. Status updated: pending → analyzed. Redacted summary generated."},
+  {node:5, msg:"📦 R2 archives the full original text. D1 stores only a reference pointer."},
+  {node:6, msg:"📌 KV stats cache invalidated — next dashboard load gets fresh data from D1"},
+  {node:7, msg:"🔔 Urgency = 9 → Slack alert fired with PM owner, summary, and direct link to record"}
+];
+function nextStep() {
+  flowStep++;
+  var nodes = document.querySelectorAll('.flow-node');
+  var arrows = document.querySelectorAll('.flow-arrow');
+  // Reset all
+  nodes.forEach(function(n){ n.classList.remove('active','done'); });
+  arrows.forEach(function(a){ a.classList.remove('active'); });
+  if (flowStep < flowSteps.length) {
+    var s = flowSteps[flowStep];
+    // Mark done
+    for (var i=0; i<s.node; i++) nodes[i].classList.add('done');
+    // Mark active
+    nodes[s.node].classList.add('active');
+    if (s.node > 0) arrows[s.node-1].classList.add('active');
+    document.getElementById('flow-status').innerHTML = '<strong style="color:var(--orange)">Step '+(flowStep+1)+'/'+flowSteps.length+':</strong> '+s.msg;
+    var btn = document.getElementById('flow-btn');
+    btn.textContent = flowStep < flowSteps.length-1 ? '▶ Next Step' : '↺ Restart';
+  } else {
+    flowStep = -1;
+    document.getElementById('flow-status').innerHTML = '✓ Complete — all 7 products engaged. The feedback is now visible in the PM dashboard.';
+    document.getElementById('flow-btn').textContent = '▶ Run Again';
+    nodes.forEach(function(n){ n.classList.add('done'); });
+  }
+}
+
+// ── Journey step reveal on scroll ───────────────────────────────────
+var steps = document.querySelectorAll('.journey-step');
+var observer = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+},{threshold:0.2});
+steps.forEach(function(s){ observer.observe(s); });
+
+// ── Score bars animate on scroll ────────────────────────────────────
+var scoreSection = document.getElementById('score-examples');
+var scoreAnimated = false;
+var scoreObserver = new IntersectionObserver(function(entries){
+  if (entries[0].isIntersecting && !scoreAnimated) {
+    scoreAnimated = true;
+    document.querySelectorAll('.score-row').forEach(function(row){
+      var score = parseInt(row.dataset.score);
+      var fill = row.querySelector('.score-fill');
+      setTimeout(function(){ fill.style.width = score+'%'; }, 200);
+    });
+  }
+},{threshold:0.3});
+if (scoreSection) scoreObserver.observe(scoreSection);
+
+// ── Quiz accordion ───────────────────────────────────────────────────
+function toggleQuiz(el) {
+  var answer = el.nextElementSibling;
+  var chevron = el.querySelector('.quiz-chevron');
+  var isOpen = answer.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.quiz-answer').forEach(function(a){ a.classList.remove('open'); });
+  document.querySelectorAll('.quiz-chevron').forEach(function(c){ c.style.transform=''; });
+  if (!isOpen) {
+    answer.classList.add('open');
+    chevron.style.transform = 'rotate(180deg)';
+  }
+}
+
+// ── Active nav link on scroll ────────────────────────────────────────
+var sections = document.querySelectorAll('[id]');
+window.addEventListener('scroll', function(){
+  var pos = window.scrollY + 100;
+  sections.forEach(function(s){
+    var link = document.querySelector('.nav-link[href="#'+s.id+'"]');
+    if (!link) return;
+    if (s.offsetTop <= pos && s.offsetTop + s.offsetHeight > pos) {
+      document.querySelectorAll('.nav-link').forEach(function(l){ l.classList.remove('active'); });
+      link.classList.add('active');
+    }
+  });
+});
+</script>
+</body>
+</html>
