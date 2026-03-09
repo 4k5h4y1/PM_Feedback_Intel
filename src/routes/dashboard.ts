@@ -9,7 +9,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>SignalDesk — PM Feedback Intelligence</title>
+<title>PMI Dashboard — Voice of Customer</title>
 <style>
 :root {
   --bg:#0b0d12; --surface:#13161f; --surface2:#1c2030; --surface3:#242840;
@@ -33,7 +33,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .app{display:flex;height:100vh}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .sidebar-logo{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:56px}
-.logo-mark{width:28px;height:28px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 0 14px rgba(246,130,31,0.4)}
+.logo-mark{width:28px;height:28px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;color:#fff;flex-shrink:0;box-shadow:0 0 14px rgba(246,130,31,0.4);letter-spacing:-0.5px}
 .logo-name{font-weight:700;font-size:15px;line-height:1.1}
 .logo-sub{font-size:10px;color:var(--muted);font-weight:400}
 .nav{padding:10px 0;flex:1;overflow-y:auto}
@@ -289,6 +289,22 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
 .pm-brief-preview{font-size:13px;line-height:1.7;color:var(--muted);margin-bottom:10px}
 .pm-brief-expand{font-size:12px;color:var(--orange);cursor:pointer;text-decoration:none}
 .pm-brief-expand:hover{text-decoration:underline}
+
+/* ─── Prioritization buckets ─────────────────────────────────────── */
+.bucket-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.bucket-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:900px){.bucket-grid,.bucket-grid-3{grid-template-columns:1fr}}
+.bucket-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px;position:relative;overflow:hidden}
+.bucket-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--bc,var(--border));border-radius:var(--r2) var(--r2) 0 0}
+.bucket-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--bc,var(--muted));margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.bucket-desc{font-size:11px;color:var(--muted);margin-bottom:10px}
+.bucket-count{font-size:24px;font-weight:800;color:var(--bc,var(--text));line-height:1;margin-bottom:10px}
+.bucket-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px}
+.bucket-item:last-child{border-bottom:none;padding-bottom:0}
+.bucket-item-body{min-width:0;flex:1}
+.bucket-item-title{font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
+.bucket-item-meta{font-size:11px;color:var(--muted)}
+.bucket-empty{padding:12px 0;text-align:center;color:var(--dim);font-size:12px}
 </style>
 </head>
 <body>
@@ -297,8 +313,8 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark">S</div>
-    <div><div class="logo-name">SignalDesk</div><div class="logo-sub">PM Feedback Intelligence</div></div>
+    <div class="logo-mark">PM</div>
+    <div><div class="logo-name">PMI Dashboard</div><div class="logo-sub">Voice of Customer</div></div>
   </div>
   <nav class="nav">
     <div class="nav-label">Dashboard</div>
@@ -306,7 +322,7 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
       <span class="nav-icon">◈</span> Overview
     </button>
     <button class="nav-item" id="nav-issues" onclick="gotoView('issues')">
-      <span class="nav-icon">⚡</span> Priority Issues
+      <span class="nav-icon">⊞</span> Prioritization
       <span class="nav-badge o" id="nb-urgency">…</span>
     </button>
     <div class="nav-label" style="margin-top:6px">Intelligence</div>
@@ -315,7 +331,7 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
       <span class="nav-badge o" id="nb-comp">…</span>
     </button>
     <button class="nav-item" id="nav-security" onclick="gotoView('security')">
-      <span class="nav-icon">🔒</span> Security &amp; Privacy
+      <span class="nav-icon">🔒</span> Security Issues
       <span class="nav-badge" id="nb-sec">…</span>
     </button>
     <button class="nav-item" id="nav-ai" onclick="gotoView('ai')">
@@ -343,7 +359,7 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
       <span class="page-desc" id="pg-desc">· Signal summary</span>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-sm" onclick="gotoView('ai')">✦ Weekly Digest</button>
+      <button class="btn btn-sm" onclick="gotoView('issues')">⊞ Prioritization</button>
       <button class="btn btn-primary btn-sm" onclick="openSubmit()">+ Submit Feedback</button>
     </div>
   </div>
@@ -403,9 +419,9 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
       <!-- Section 5: What's Trending -->
       <div class="section-label" style="margin-top:4px;margin-bottom:8px">What's Trending</div>
       <div class="card mb16">
-        <div class="card-header"><div class="card-title">What's Trending</div><div class="info">i<div class="tip">Recurring themes extracted by Workers AI. Top 5 shown — see Priority Issues for full view.</div></div></div>
+        <div class="card-header"><div class="card-title">What's Trending</div><div class="info">i<div class="tip">Recurring themes extracted by Workers AI. Top 5 shown — see Prioritization for full view.</div></div></div>
         <div id="ov-themes"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)"><span class="alert-action" onclick="gotoView('issues')">See all → Priority Issues</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)"><span class="alert-action" onclick="gotoView('issues')">See all → Prioritization</span></div>
       </div>
 
       <!-- Section 6: PM Brief -->
@@ -416,22 +432,58 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
 
     </div>
 
-    <!-- ═══ KEY ISSUES ════════════════════════════════════════════ -->
+    <!-- ═══ PRIORITIZATION ════════════════════════════════════════ -->
     <div class="view" id="view-issues">
       <div class="sec-head">
-        <div class="sec-title">Priority Issues</div>
-        <div class="sec-desc">Top recurring problems by volume, negativity, and urgency — extracted by Workers AI from all feedback sources.</div>
+        <div class="sec-title">Prioritization</div>
+        <div class="sec-desc">Feedback automatically bucketed by business impact, effort, and strategic value. Click any item to view detail.</div>
       </div>
       <div class="insight" id="sig-insight" style="display:none">
         <span class="insight-icon">⚡</span><span id="sig-insight-txt"></span>
       </div>
-      <div class="card mb16">
-        <div class="card-header"><div class="card-title">What's Trending</div><div class="info">i<div class="tip">Recurring themes extracted by Workers AI per record. Count = records mentioning this. Neg% = share with negative sentiment.</div></div></div>
-        <div id="sig-table"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+
+      <!-- Row 1: Core Gaps + Quick Wins -->
+      <div class="bucket-grid">
+        <div class="bucket-card" style="--bc:var(--red)">
+          <div class="bucket-title">🔥 Core Gaps</div>
+          <div class="bucket-desc">High-urgency bugs &amp; complaints from key accounts. Fix now.</div>
+          <div class="bucket-count" id="bkt-core-cnt">—</div>
+          <div id="bkt-core"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
+        <div class="bucket-card" style="--bc:var(--yellow)">
+          <div class="bucket-title">🎯 Quick Wins</div>
+          <div class="bucket-desc">Actionable, medium-urgency items — high return, low friction.</div>
+          <div class="bucket-count" id="bkt-qw-cnt">—</div>
+          <div id="bkt-qw"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">High Urgency Feed</div><div class="info">i<div class="tip">All records with urgency ≥ 8 — production issues, churn risk, security incidents.</div></div></div>
-        <div id="sig-urgent"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+
+      <!-- Row 2: Strategic Bets + Long-Term + Delighters -->
+      <div class="bucket-grid-3">
+        <div class="bucket-card" style="--bc:var(--blue)">
+          <div class="bucket-title">🚀 Strategic Bets</div>
+          <div class="bucket-desc">Feature requests tied to enterprise or competitive signal.</div>
+          <div class="bucket-count" id="bkt-sb-cnt">—</div>
+          <div id="bkt-sb"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
+        <div class="bucket-card" style="--bc:var(--teal)">
+          <div class="bucket-title">🌱 Long-Term</div>
+          <div class="bucket-desc">Lower-urgency feature ideas worth tracking for the roadmap.</div>
+          <div class="bucket-count" id="bkt-lt-cnt">—</div>
+          <div id="bkt-lt"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
+        <div class="bucket-card" style="--bc:var(--green)">
+          <div class="bucket-title">✨ Delighters</div>
+          <div class="bucket-desc">Positive signals — praise &amp; ideas that amplify what's working.</div>
+          <div class="bucket-count" id="bkt-del-cnt">—</div>
+          <div id="bkt-del"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Trending themes -->
+      <div class="card mb16">
+        <div class="card-header"><div class="card-title">What's Trending</div><div class="info">i<div class="tip">Recurring themes extracted by Workers AI. Count = records mentioning this. Neg% = share with negative sentiment.</div></div></div>
+        <div id="sig-table"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
       </div>
     </div>
 
@@ -456,7 +508,7 @@ textarea.form-ctrl{min-height:90px;resize:vertical}
     <!-- ═══ SECURITY ══════════════════════════════════════════════ -->
     <div class="view" id="view-security">
       <div class="sec-head">
-        <div class="sec-title">Security &amp; Privacy</div>
+        <div class="sec-title">Security Issues</div>
         <div class="sec-desc">Restricted signals, PII-flagged records, and visibility scope enforcement.</div>
       </div>
       <div class="sec-banner">
@@ -714,9 +766,9 @@ function sentScoreColor(score) {
 // ── Navigation ───────────────────────────────────────────────────────
 var PAGE_INFO = {
   overview:    ['Overview','Live signal summary across all channels'],
-  issues:      ['Priority Issues','Top recurring problems by urgency and volume'],
+  issues:      ['Prioritization','Feedback bucketed by impact — Core Gaps · Quick Wins · Strategic Bets'],
   competitors: ['Competitive Pressure','Named competitor mentions and context'],
-  security:    ['Security & Privacy','Restricted signals and PII enforcement'],
+  security:    ['Security Issues','Restricted signals and PII enforcement'],
   ai:          ['Weekly Digest','AI-generated PM summary from Workers AI'],
   feed:        ['All Feedback','Complete dataset with filter controls']
 };
@@ -894,20 +946,87 @@ function loadOverview() {
   }).catch(function(){ html('ov-pm-brief','<div style="color:var(--muted);font-size:12px">Brief unavailable</div>'); });
 }
 
-// ── Key Issues ────────────────────────────────────────────────────────
+// ── Prioritization ───────────────────────────────────────────────────
 var issuesLoaded = false;
+function bucketItem(item) {
+  var ft = item.feedback_type || '';
+  var seg = item.customer_segment || 'unknown';
+  var act = parseFloat(item.actionability || 0);
+  var urg = item.urgency || 0;
+  var sent = item.sentiment || '';
+  // Core Gaps: high-urgency bugs/complaints/churn from key accounts
+  if (urg >= 8 && (ft === 'bug' || ft === 'complaint' || ft === 'churn_risk') &&
+      (seg === 'enterprise' || seg === 'smb')) return 'core_gaps';
+  // Delighters: praise or positive feature ideas
+  if (ft === 'praise' || (sent === 'positive' && ft !== 'churn_risk' && urg < 7)) return 'delighters';
+  // Strategic Bets: feature requests with enterprise backing or competitive signal
+  if (ft === 'feature_request' && urg >= 5 && (item.competitor_mentioned || seg === 'enterprise')) return 'strategic_bets';
+  // Quick Wins: medium urgency, actionable bugs/features
+  if (urg >= 6 && urg < 9 && act >= 0.7 && (ft === 'bug' || ft === 'feature_request' || ft === 'complaint')) return 'quick_wins';
+  // Core Gaps catch-all for very high urgency
+  if (urg >= 8) return 'core_gaps';
+  // Quick Wins catch-all for medium urgency
+  if (urg >= 6 && act >= 0.6) return 'quick_wins';
+  // Long-term: feature requests and low urgency signals
+  if (ft === 'feature_request') return 'long_term';
+  return 'long_term';
+}
+function renderBucketItems(items, elId, limit) {
+  limit = limit || 4;
+  if (!items.length) { html(elId, '<div class="bucket-empty">No items in this bucket</div>'); return; }
+  html(elId, items.slice(0, limit).map(function(item) {
+    var score = criticalityScore(item);
+    return '<div class="bucket-item">'+
+      '<div style="flex-shrink:0">'+critBadge(score)+'</div>'+
+      '<div class="bucket-item-body">'+
+      '<div class="bucket-item-title" onclick="openDetail(\''+H(item.id)+'\')" style="cursor:pointer">'+
+        H((item.summary || item.raw_text || '').slice(0, 70))+'…</div>'+
+      '<div class="bucket-item-meta">'+srcIcon(item.source_type)+' '+H(item.source_type)+
+        (item.product_category ? ' · '+H(item.product_category.replace(/_/g,' ')) : '')+
+        (item.customer_segment && item.customer_segment !== 'unknown' ? ' · '+H(item.customer_segment) : '')+
+      '</div>'+
+      '</div></div>';
+  }).join(''));
+}
 function loadIssues() {
   if (issuesLoaded) return;
+  fetch('/api/feedback?sort=urgency_desc&limit=80').then(function(r){ return r.json(); }).then(function(d){
+    var items = d.items || [];
+    var buckets = {core_gaps:[], quick_wins:[], strategic_bets:[], long_term:[], delighters:[]};
+    items.forEach(function(item) {
+      var b = bucketItem(item);
+      buckets[b].push(item);
+    });
+    // Sort each bucket by criticality score descending
+    Object.keys(buckets).forEach(function(k) {
+      buckets[k].sort(function(a,b){ return criticalityScore(b)-criticalityScore(a); });
+    });
+    set('bkt-core-cnt', buckets.core_gaps.length);
+    set('bkt-qw-cnt', buckets.quick_wins.length);
+    set('bkt-sb-cnt', buckets.strategic_bets.length);
+    set('bkt-lt-cnt', buckets.long_term.length);
+    set('bkt-del-cnt', buckets.delighters.length);
+    renderBucketItems(buckets.core_gaps, 'bkt-core', 4);
+    renderBucketItems(buckets.quick_wins, 'bkt-qw', 4);
+    renderBucketItems(buckets.strategic_bets, 'bkt-sb', 3);
+    renderBucketItems(buckets.long_term, 'bkt-lt', 3);
+    renderBucketItems(buckets.delighters, 'bkt-del', 3);
+    // Insight callout
+    var topBucket = buckets.core_gaps.length ? buckets.core_gaps : buckets.quick_wins;
+    var insEl = document.getElementById('sig-insight');
+    if (insEl && topBucket.length) {
+      insEl.style.display = 'flex';
+      set('sig-insight-txt', buckets.core_gaps.length+' Core Gaps need immediate attention · '+buckets.quick_wins.length+' Quick Wins ready to ship · '+buckets.strategic_bets.length+' Strategic Bets to roadmap.');
+    }
+    issuesLoaded = true;
+  }).catch(function(e){ html('bkt-core','<div style="color:var(--red);font-size:12px">'+H(String(e))+'</div>'); });
+
   fetch('/api/themes').then(function(r){ return r.json(); }).then(function(d){
     if (!d.themes || !d.themes.length) { html('sig-table','<div style="color:var(--muted)">No patterns found</div>'); return; }
-    var top = d.themes[0];
-    var insEl = document.getElementById('sig-insight');
-    if (insEl) insEl.style.display = 'flex';
-    set('sig-insight-txt', 'Top issue: "'+top.theme+'" in '+top.count+' records — '+top.negative_pct+'% negative, avg urgency '+top.avg_urgency+'/10.');
     html('sig-table',
       '<table style="width:100%;border-collapse:collapse">'+
       '<thead><tr>'+
-      '<th style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)">Issue / Theme</th>'+
+      '<th style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)">Theme</th>'+
       '<th style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)">Count</th>'+
       '<th style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)">Neg%</th>'+
       '<th style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)">Avg Urgency</th>'+
@@ -916,7 +1035,7 @@ function loadIssues() {
       d.themes.slice(0,15).map(function(t){
         var nB = t.negative_pct>60?'b-red':t.negative_pct>30?'b-yellow':'b-green';
         var uB = t.avg_urgency>=8?'u-c':t.avg_urgency>=6?'u-h':'u-m';
-        return '<tr style="cursor:pointer" onclick="gotoView(\\'feed\\')" onmouseover="this.style.background=\\'var(--surface2)\\'" onmouseout="this.style.background=\\'\\'">' +
+        return '<tr style="cursor:pointer" onclick="gotoView(\'feed\')" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">'+
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border2);font-family:monospace;font-size:12px;color:var(--text)">'+H(t.theme)+'</td>'+
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border2);font-weight:700">'+t.count+'</td>'+
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border2)"><span class="badge '+nB+'">'+t.negative_pct+'%</span></td>'+
@@ -924,13 +1043,7 @@ function loadIssues() {
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border2)"><span class="badge b-gray" style="font-size:10px">'+H(t.top_category||'—')+'</span></td>'+
           '</tr>';
       }).join('')+'</tbody></table>');
-    issuesLoaded = true;
   }).catch(function(e){ html('sig-table','<div style="color:var(--red);font-size:12px">'+H(String(e))+'</div>'); });
-
-  fetch('/api/feedback?urgency_min=8&sort=urgency_desc&limit=10').then(function(r){ return r.json(); }).then(function(d){
-    html('sig-urgent', d.items && d.items.length ? d.items.map(function(i){ return feedCard(i); }).join('') :
-      '<div class="feed-empty"><div class="feed-empty-icon">✓</div>No high-urgency records</div>');
-  }).catch(function(){});
 }
 
 // ── Competitors ──────────────────────────────────────────────────────

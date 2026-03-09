@@ -1,6 +1,6 @@
-# SignalDesk — PM Feedback Intelligence
+# PMI Dashboard — Voice of Customer
 
-A secure internal Voice of Customer platform for Product Managers, built entirely on Cloudflare's developer platform.
+> **Product Manager Intelligence** — a secure internal VoC platform for PMs, built entirely on Cloudflare's developer platform.
 
 **Live:** https://signaldesk.ashar-0a8.workers.dev
 
@@ -8,7 +8,7 @@ A secure internal Voice of Customer platform for Product Managers, built entirel
 
 ## Executive Summary
 
-SignalDesk ingests feedback from 8 channels (GitHub, Discord, support tickets, email, Twitter/X, NPS surveys, Zoom call transcripts, and sales notes), analyzes each record with Workers AI, and surfaces actionable intelligence for PMs — urgency scoring, competitor tracking, PII redaction, and restricted visibility controls — all within a single Cloudflare Workers deployment.
+PMI Dashboard ingests feedback from 8 channels (GitHub, Discord, support tickets, email, Twitter/X, NPS surveys, Zoom call transcripts, and sales notes), analyzes each record with Workers AI, and surfaces actionable intelligence for PMs — urgency scoring, competitor tracking, PII redaction, and restricted visibility controls — all within a single Cloudflare Workers deployment.
 
 The core PM workflow: **aggregate → normalize → analyze → filter → investigate → act**
 
@@ -208,9 +208,9 @@ List view (`GET /api/feedback`) always uses `redacted_summary` — raw text is n
 The single-page dashboard (inline HTML/CSS/JS, no bundler, no framework) has six views:
 
 1. **Overview** — PM briefing surface: Priority Actions strip, 4-card executive summary, trend charts, segment comparison table, top-5 theme preview, collapsed PM Brief
-2. **Priority Issues** — Full theme intelligence table + high-urgency feed with filter controls
+2. **Prioritization** — Feedback auto-bucketed into 5 categories: Core Gaps · Quick Wins · Strategic Bets · Long-Term · Delighters (client-side weighted scoring + trending themes table)
 3. **Competitive Pressure** — Competitor intelligence grouped by name with context, comparison type, and related product areas
-4. **Security & Privacy** — Restricted signals, PII-flagged records, visibility scope model
+4. **Security Issues** — Restricted signals, PII-flagged records, visibility scope model
 5. **All Feedback** — Full paginated feed with filter/sort controls (source, sentiment, product, stakeholder, sort by urgency/date/sentiment)
 6. **Weekly Digest** — AI-generated PM digest with a Regenerate button
 
@@ -237,10 +237,26 @@ Removed from hero: Negative count, Restricted count, PII Flagged count (operatio
 Enterprise / Mid-Market / Emerging comparison table. Columns: Volume (+ urgent count), Avg Urgency, Sentiment Health, Top Issue Area, Competitive Pressure.
 
 **Section 5 — What's Trending**
-Top 5 themes from `/api/themes` with "See all → Priority Issues" link.
+Top 5 themes from `/api/themes` with "See all → Prioritization" link.
 
 **Section 6 — PM Brief**
 First ~300 characters of the AI digest with "Full brief → Weekly Digest" link.
+
+---
+
+## Prioritization Buckets
+
+The **Prioritization** view classifies every feedback record client-side into one of five actionable buckets using the fields already returned by `/api/feedback`. No extra API calls, no DB changes.
+
+| Bucket | Icon | Classification Rule |
+|---|---|---|
+| **Core Gaps** | 🔥 | `urgency ≥ 8` + type in `(bug, complaint, churn_risk)` + segment `enterprise` or `smb` |
+| **Quick Wins** | 🎯 | `urgency 6–8` + `actionability ≥ 0.7` + type in `(bug, feature_request, complaint)` |
+| **Strategic Bets** | 🚀 | `feedback_type = feature_request` + `urgency ≥ 5` + (`competitor_mentioned OR enterprise`) |
+| **Long-Term** | 🌱 | `feedback_type = feature_request` + `urgency < 6` |
+| **Delighters** | ✨ | `feedback_type = praise` OR (`sentiment = positive` AND `urgency < 7`) |
+
+Items within each bucket are sorted descending by `criticalityScore()`. The top 3–4 items per bucket are shown, each linking to the full detail modal.
 
 ---
 
@@ -341,17 +357,22 @@ A geospatial view built on `LIKE '%eu%'` pattern matching would be entirely deco
 
 | Location | Previous label | Current label |
 |---|---|---|
-| Sidebar nav | Key Issues | Priority Issues |
-| Page title / tab | Key Issues | Priority Issues |
-| Issues view heading | Key Issues | Priority Issues |
+| Product name | SignalDesk | PMI Dashboard |
+| Product subtitle | PM Feedback Intelligence | Voice of Customer |
+| Sidebar nav | Key Issues | Prioritization |
+| Page title / tab | Key Issues / Priority Issues | Prioritization |
+| Issues view heading | Key Issues / Priority Issues | Prioritization |
 | Issues view theme card | Issue Patterns | What's Trending |
 | Sidebar nav | Competitor Intel | Competitive Pressure |
 | Page title / tab | Competitor Intel | Competitive Pressure |
 | Competitors view heading | Competitor Intelligence | Competitive Pressure |
+| Sidebar nav | Security & Privacy | Security Issues |
+| Security view heading | Security & Privacy | Security Issues |
 | Stat card | Negative | *(replaced by Customer Sentiment)* |
 | Stat card | Competitor Mentions | Competitive Pressure |
 | Stat card | Total Feedback | Total Signals |
 | Overview alert strip | Action Required — High Urgency | Priority Actions — Needs PM Attention |
+| Topbar shortcut button | Weekly Digest | Prioritization |
 
 ---
 
