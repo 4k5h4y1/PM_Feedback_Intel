@@ -262,22 +262,3 @@ pmi-dashboard/
         └── ingest.ts           # FeedbackIngestWorkflow — 6 durable steps
 ```
 
----
-
-## Friction Log
-
-Seven developer experience gaps found while building this project.
-
-**1. KV dual-ID requirement** — `wrangler dev` silently falls back to ephemeral in-memory KV when `preview_id` is missing. No warning. Data vanishes on restart. Fix: `wrangler kv namespace create <name> --preview`.
-
-**2. Workers AI model discovery** — No in-dashboard model catalog. Model IDs, capability metadata, and JSON-mode support are scattered across docs. Suggest: model catalog with capability cards in the Workers AI binding UI.
-
-**3. Access local testing gap** — No way to simulate Access policy evaluation with `wrangler dev`. Auth flow requires a deployed URL. Suggest: `--mock-access-email` flag to inject a fake identity header locally.
-
-**4. Workflows local fidelity** — Retry behavior, step isolation, and sleep precision differ between local and production. No step-level trace in terminal. Suggest: `--workflows-verbose` mode mirroring the production dashboard execution log.
-
-**5. D1 JSON array querying** — `json_each()` behavior in D1 is undocumented. Array-membership filtering falls back to fragile `LIKE '%value%'` patterns. Suggest: dedicated D1 docs section on JSON field querying with worked examples.
-
-**6. Bindings dashboard scatter** — D1, KV, R2, AI, and Workflows each live in separate dashboard sections with no unified resource overview. Suggest: "Worker Resources" page showing all bindings, status, and quick-links in one place.
-
-**7. R2 writes inside Workflow steps** — R2 `put()` inside a Workflow step appears to succeed locally but does not persist. Same code works in a regular Workers handler. No warning. Only discoverable in production.
