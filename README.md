@@ -1,580 +1,283 @@
 # PMI Dashboard — Voice of Customer
 
-> **Product Manager Intelligence** — a secure internal VoC platform for PMs, built entirely on Cloudflare's developer platform.
+A secure, internal feedback intelligence platform for Product Managers built entirely on Cloudflare's developer stack. Ingests feedback from 8 channels, analyzes each record with Workers AI, and surfaces prioritized PM signal — all in a single Worker deployment.
 
-**Live:** https://signaldesk.ashar-0a8.workers.dev
+**Live demo:** https://pmi-dashboard.ashar-0a8.workers.dev
 
 ---
 
-## Executive Summary
+## Features
 
-PMI Dashboard ingests feedback from 8 channels (GitHub, Discord, support tickets, email, Twitter/X, NPS surveys, Zoom call transcripts, and sales notes), analyzes each record with Workers AI, and surfaces actionable intelligence for PMs — urgency scoring, competitor tracking, PII redaction, and restricted visibility controls — all within a single Cloudflare Workers deployment.
-
-The core PM workflow: **aggregate → normalize → analyze → filter → investigate → act**
-
-Key outcomes from a 60-record demo dataset:
-- 14 high-urgency issues (urgency 8-10) surfaced and ranked
-- 14 competitor mentions extracted with context (switching_from / evaluating / mentioned)
-- 6 security-sensitive records automatically restricted from the default view
-- 9 PII-flagged records with emails/IPs/tokens replaced in all display fields
-- AI-generated PM digest synthesizing top themes, risks, and recommended actions
+- **Weighted Criticality Scoring** — 0–100 score per feedback record using source, segment, type, security, and competitor multipliers
+- **Prioritization Buckets** — client-side auto-classification into Core Gaps · Quick Wins · Strategic Bets · Long-Term · Delighters
+- **Segment Impact** — Enterprise / Mid-Market / Emerging breakdown with urgency, sentiment, and competitive pressure
+- **Customer Sentiment Score** — composite 0–100 health metric replacing raw negative counts
+- **Competitor Intelligence** — named competitor extraction with comparison context (switching_from / evaluating / mentioned)
+- **Security & PII Controls** — server-side visibility scoping, PII auto-redaction, `security_team_only` content restriction
+- **AI Weekly Digest** — PM-readable summary via Workers AI (Llama 3.1-8B), cached in KV at 1-hour TTL
+- **Slack Alerting** — Block Kit alerts for urgency ≥ 8 records, routed to PM by product area
 
 ---
 
 ## Architecture
 
 ```
-Seed Data (60 records, 8 source types)
-         │
-         ▼
-POST /api/seed ──────────────────────────────────────────┐
-         │                                                │
-         ▼ (live path for new submissions)                │
-POST /api/feedback                                        │
-         │                                                │
-         ▼                                                │
-Cloudflare Workflows (FeedbackIngestWorkflow)             │
-  Step 1: validate-and-fetch (idempotency guard)          │
-  Step 2: analyze-with-ai (Workers AI, retries: 2)        │
-  Step 3: persist-to-d1 (write feedback + analysis)       │
-  Step 4: store-raw-payload (R2, long-form sources only)  │
-  Step 5: invalidate-cache (KV stats key)                 │
-  Step 6: send-urgent-alert (Slack, urgency >= 8)         │
-         │                          │               │
-         ▼                          ▼               ▼
-    D1 Database               R2 Bucket         KV Store
-  (feedback + analysis       (raw payloads     (stats 5 min TTL
-   two-table design)         for zoom/sales/    digest 1 hr TTL)
-                              email records)
-         │
-         ▼
-Workers API (Hono) + Dashboard HTML
-         │
-         ▼
-Cloudflare Access (described — see section below)
-         │
-         ▼
-Browser — PM Dashboard (6 views, vanilla JS, no bundler)
+Feedback (8 sources) → POST /api/feedback
+                              │
+                              ▼
+              Cloudflare Workflows (6 durable steps)
+                Step 1: validate + idempotency check
+                Step 2: Workers AI structured extraction
+                Step 3: write to D1 (feedback + analysis)
+                Step 4: archive raw payload to R2
+                Step 5: invalidate KV cache
+                Step 6: Slack alert (urgency ≥ 8)
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+         D1 Database      R2 Bucket       KV Store
+       (two-table schema) (raw payloads)  (cache 5min/1hr)
+                              │
+                              ▼
+              Hono API + Dashboard HTML (single Worker)
 ```
 
-### Cloudflare Products Used
+### Cloudflare Products
 
-| # | Product | Binding | Role |
-|---|---|---|---|
-| 1 | **Workers** | — | Runtime, Hono API, dashboard HTML serving |
-| 2 | **D1** | `DB` | Normalized feedback + AI analysis (two-table schema) |
-| 3 | **Workers AI** | `AI` | Llama 3.1-8B structured JSON extraction |
-| 4 | **Workflows** | `INGEST_WORKFLOW` | Durable 6-step ingest pipeline with retries |
-| 5 | **KV** | `CACHE` | Stats cache (5 min TTL) + AI digest cache (1 hr TTL) |
-| 6 | **R2** | `RAW_PAYLOADS` | Raw payload archive for long-form sources |
-| 7 | **Cloudflare Access** | — | Identity-aware auth (see §Access Architecture) |
-
----
-
-## Workers AI Design
-
-### This is structured extraction, not an agent
-
-Workers AI is used for **one-shot structured JSON extraction** — not reasoning, not tool use, not agentic loops. Each piece of feedback goes in, a validated JSON object comes out. The design is intentionally narrow and deterministic:
-
-- Single inference call per feedback record
-- Output: 22 typed fields (sentiment, urgency 1-10, product_category, competitor_name, pii_detected, visibility_scope, etc.)
-- No tool calls, no multi-turn, no planning
-- JSON-only output enforced at the prompt level ("No markdown. No code fences. Just the JSON object.")
-- Parser validates and coerces every field with safe defaults — bad AI output degrades gracefully
-
-**Why not an agent?** An agent (tool-calling loop, ReAct, etc.) would add latency, non-determinism, and cost for no gain. The extraction task is well-defined — given a piece of text and its source context, classify it across a fixed taxonomy. Structured extraction is the correct abstraction.
-
-**Why Llama 3.1-8B?** It runs natively on Workers AI, supports JSON-mode-style prompting reliably, and is fast enough for synchronous analysis inside a Workflow step. The 8B parameter size is sufficient for classification; larger models would add latency without meaningfully improving taxonomy accuracy.
-
-### AI for digest generation (separate path)
-
-A second AI call powers `GET /api/digest` and `POST /api/digest/refresh`. This is **summarization over aggregated stats** — the model receives a structured data context and writes a PM-readable weekly digest in a fixed format (Top Signals, High-Urgency Issues, Competitor Intelligence, What Can Wait, Recommended Next Steps). Cached in KV at 1-hour TTL.
-
-### Safety enforcement
-
-If `pii_detected=true`, summaries are auto-sanitized before storage via regex patterns:
-- Email addresses → `[REDACTED_EMAIL]`
-- IP addresses → `[REDACTED_IP]`
-- API keys / bearer tokens → `[REDACTED_TOKEN]`
-
-This runs in the parser layer (not just the API layer) — PII never reaches D1 in display fields.
+| Product | Binding | Role |
+|---|---|---|
+| **Workers** | — | Hono API + dashboard HTML |
+| **D1** | `DB` | Two-table schema: `feedback` + `analysis` |
+| **Workers AI** | `AI` | Llama 3.1-8B structured JSON extraction |
+| **Workflows** | `INGEST_WORKFLOW` | Durable 6-step ingest pipeline |
+| **KV** | `CACHE` | Stats (5 min TTL) + AI digest (1 hr TTL) |
+| **R2** | `RAW_PAYLOADS` | Raw payload archive for long-form sources |
+| **Access** | — | Identity-aware auth (described below) |
 
 ---
 
-## D1 Schema — Two Tables
+## Setup from Scratch
 
-Separating raw feedback from AI-generated analysis means re-analysis can overwrite `analysis` without touching `feedback`. Clean audit trail; no data loss on model upgrades.
+### Prerequisites
 
-```sql
--- TABLE 1: feedback (raw + metadata)
-CREATE TABLE feedback (
-  id TEXT PRIMARY KEY,
-  source_type TEXT NOT NULL,       -- github|discord|support|email|twitter|nps|zoom|sales
-  stakeholder_type TEXT NOT NULL,  -- customer|developer|sales|support|internal|unknown
-  raw_text TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  analysis_status TEXT DEFAULT 'pending',  -- pending|analyzed|failed
-  nps_score INTEGER,               -- 0-10, NPS records only
-  csat_score REAL,                 -- 1.0-5.0, support/CSAT records only
-  raw_payload_ref TEXT,            -- R2 object key (long-form sources)
-  workflow_run_id TEXT,            -- Workflow instance ID for debugging
-  source_metadata TEXT             -- JSON blob (repo, ticket_id, channel, etc.)
-);
+- [Node.js](https://nodejs.org) ≥ 18
+- Cloudflare account with Workers paid plan (required for Workflows)
+- `wrangler` authenticated: `npx wrangler login`
 
--- TABLE 2: analysis (AI-generated structured output)
-CREATE TABLE analysis (
-  feedback_id TEXT REFERENCES feedback(id),
-  sentiment TEXT,                  -- positive|neutral|negative
-  urgency INTEGER,                 -- 1-10
-  product_category TEXT,           -- workers|d1|r2|kv|pages|security_waf|...
-  themes TEXT,                     -- JSON array: ["cold_start","latency"]
-  summary TEXT,                    -- 1-2 sentence PM summary, no PII
-  redacted_summary TEXT,           -- PII-scrubbed version for list views
-  competitor_mentioned INTEGER,    -- 0|1
-  competitor_name TEXT,            -- fastly|netlify|aws_lambda_edge|akamai|vercel|...
-  comparison_context TEXT,         -- pricing|performance|dx|features|reliability|...
-  pii_detected INTEGER,            -- 0|1
-  pii_types TEXT,                  -- JSON array: ["email","ip_address","api_key"]
-  security_sensitive INTEGER,      -- 0|1
-  visibility_scope TEXT DEFAULT 'internal',  -- public|internal|restricted|security_team_only
-  owner_team TEXT,                 -- routed PM/team owner
-  confidence REAL                  -- 0.0-1.0
-);
+### 1. Install dependencies
+
+```bash
+npm install
 ```
 
----
+### 2. Create Cloudflare resources
 
-## Alerting
+```bash
+# D1 database
+npx wrangler d1 create signaldesk-db
+# Copy the database_id into wrangler.toml → [[d1_databases]] → database_id
 
-When `urgency >= 8` and a `SLACK_WEBHOOK_URL` environment variable is configured, Step 6 of the Workflow fires a Slack Block Kit alert. The alert includes:
+# KV namespace (requires both production + preview IDs)
+npx wrangler kv namespace create signaldesk-cache
+npx wrangler kv namespace create signaldesk-cache --preview
+# Copy id → wrangler.toml [[kv_namespaces]] → id
+# Copy preview id → wrangler.toml [[kv_namespaces]] → preview_id
 
-- Urgency level and label (HIGH URGENCY vs CRITICAL)
-- Product area, source type, feedback type
-- Assigned PM (resolved from the `owner_team` field, with a fallback routing table mapping 25 product categories to PM roles)
-- Redacted summary (never raw text)
-- Link back to SignalDesk
+# R2 bucket
+npx wrangler r2 bucket create signaldesk-raw
+```
 
-To configure:
+### 3. Apply database schema
+
+```bash
+# Remote (production)
+npx wrangler d1 execute signaldesk-db --remote --file=schema.sql
+
+# Local dev
+npx wrangler d1 execute signaldesk-db --local --file=schema.sql
+```
+
+### 4. Configure `wrangler.toml`
+
+After creating resources, your `wrangler.toml` should have:
+
+```toml
+name = "pmi-dashboard"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "signaldesk-db"
+database_id = "<your-database-id>"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "<your-kv-id>"
+preview_id = "<your-kv-preview-id>"
+
+[[r2_buckets]]
+binding = "RAW_PAYLOADS"
+bucket_name = "signaldesk-raw"
+
+[[workflows]]
+binding = "INGEST_WORKFLOW"
+name = "feedback-ingest"
+class_name = "FeedbackIngestWorkflow"
+script_name = "pmi-dashboard"
+```
+
+### 5. Deploy
+
+```bash
+npx wrangler deploy
+```
+
+### 6. Seed demo data
+
+```bash
+curl -X POST https://pmi-dashboard.<account>.workers.dev/api/seed
+```
+
+This inserts 60 pre-analyzed mock records (idempotent — safe to run multiple times).
+
+### 7. Optional: Slack alerts
+
 ```bash
 npx wrangler secret put SLACK_WEBHOOK_URL
-# paste your Incoming Webhook URL
+# Paste your Incoming Webhook URL when prompted
 ```
-
-PM routing is defined in `src/alerts/slack.ts` — maps product categories (workers, d1, r2, security_waf, cloudflare_one, etc.) to PM role strings. Customize to match your org structure.
-
----
-
-## API Routes
-
-```
-GET  /                          Dashboard HTML
-POST /api/seed                  Insert 60 mock records (idempotent — INSERT OR IGNORE)
-POST /api/feedback              Submit new feedback → triggers Workflow
-GET  /api/stats                 Aggregate stats (KV cached 5 min, X-Cache-Hit header)
-GET  /api/feedback              Paginated feed with filters:
-                                  source, sentiment, product_category, urgency_min,
-                                  competitor_only, security_only, pii_only,
-                                  scope, stakeholder_type, sort, limit, offset
-GET  /api/feedback/:id          Single record (visibility-scoped raw_text)
-GET  /api/feedback/:id/status   Workflow analysis status polling
-GET  /api/themes                Theme intelligence (volume + urgency + sentiment per theme)
-GET  /api/competitors           Competitor intel grouped by name + comparison context
-GET  /api/timeline              Daily feedback volume with negative/urgency breakdown (30 days)
-GET  /api/segments              Per-segment stats: Enterprise, Mid-Market, Emerging (KV cached 5 min)
-GET  /api/digest                AI weekly PM digest (KV cached 1 hr)
-POST /api/digest/refresh        Force regenerate digest via Workers AI
-```
-
-### Visibility Scoping
-
-The `/api/feedback/:id` endpoint applies server-side content rules:
-
-| Scope | Behavior |
-|---|---|
-| `public` | Full raw_text returned |
-| `internal` | Full raw_text returned |
-| `restricted` | Returns `redacted_summary` only |
-| `security_team_only` | Returns `[RESTRICTED — contact security team to access full content]` |
-
-PII-flagged records (`pii_detected=true`) always substitute `redacted_summary` for `raw_text` in both list and detail views, regardless of `visibility_scope`.
-
-List view (`GET /api/feedback`) always uses `redacted_summary` — raw text is never exposed in paginated results.
-
----
-
-## Dashboard Views
-
-The single-page dashboard (inline HTML/CSS/JS, no bundler, no framework) has six views:
-
-1. **Overview** — PM briefing surface: Priority Actions strip, 4-card executive summary, trend charts, segment comparison table, top-5 theme preview, collapsed PM Brief
-2. **Prioritization** — Feedback auto-bucketed into 5 categories: Core Gaps · Quick Wins · Strategic Bets · Long-Term · Delighters (client-side weighted scoring + trending themes table)
-3. **Competitive Pressure** — Competitor intelligence grouped by name with context, comparison type, and related product areas
-4. **Security Issues** — Restricted signals, PII-flagged records, visibility scope model
-5. **All Feedback** — Full paginated feed with filter/sort controls (source, sentiment, product, stakeholder, sort by urgency/date/sentiment)
-6. **Weekly Digest** — AI-generated PM digest with a Regenerate button
-
-### Overview Page — PM Briefing Structure
-
-The overview is designed as a PM briefing surface, not an operational dashboard. It surfaces the most actionable signal first and builds context progressively:
-
-**Section 1 — Priority Actions**
-Top 5 items from urgency-8+ feedback, sorted by Weighted Criticality Score. Each card shows a color-coded criticality badge, source + product area, truncated summary, a one-line "why urgent" reason, and a direct link to the full record.
-
-**Section 2 — Executive Summary (4 cards)**
-- **Action Required** — count of urgency ≥ 8 records
-- **Customer Sentiment** — composite 0–100 score (see formula below)
-- **Competitive Pressure** — named competitor mention count
-- **Total Signals** — total analyzed records
-
-Removed from hero: Negative count, Restricted count, PII Flagged count (operational detail, not PM executive signal). NPS average is surfaced as subtext on the Customer Sentiment card.
-
-**Section 3 — Trends**
-- Feedback Volume: 30-day bar chart, orange = total, red = negative
-- Product Areas Under Pressure: horizontal bar chart by category volume
-
-**Section 4 — Segment Impact**
-Enterprise / Mid-Market / Emerging comparison table. Columns: Volume (+ urgent count), Avg Urgency, Sentiment Health, Top Issue Area, Competitive Pressure.
-
-**Section 5 — What's Trending**
-Top 5 themes from `/api/themes` with "See all → Prioritization" link.
-
-**Section 6 — PM Brief**
-First ~300 characters of the AI digest with "Full brief → Weekly Digest" link.
-
----
-
-## Prioritization Buckets
-
-The **Prioritization** view classifies every feedback record client-side into one of five actionable buckets using the fields already returned by `/api/feedback`. No extra API calls, no DB changes.
-
-| Bucket | Icon | Classification Rule |
-|---|---|---|
-| **Core Gaps** | 🔥 | `urgency ≥ 8` + type in `(bug, complaint, churn_risk)` + segment `enterprise` or `smb` |
-| **Quick Wins** | 🎯 | `urgency 6–8` + `actionability ≥ 0.7` + type in `(bug, feature_request, complaint)` |
-| **Strategic Bets** | 🚀 | `feedback_type = feature_request` + `urgency ≥ 5` + (`competitor_mentioned OR enterprise`) |
-| **Long-Term** | 🌱 | `feedback_type = feature_request` + `urgency < 6` |
-| **Delighters** | ✨ | `feedback_type = praise` OR (`sentiment = positive` AND `urgency < 7`) |
-
-Items within each bucket are sorted descending by `criticalityScore()`. The top 3–4 items per bucket are shown, each linking to the full detail modal.
-
----
-
-## Weighted Criticality Score
-
-A 0–100 score computed client-side from data already returned by `/api/feedback`. No new DB fields, no schema changes, no extra API calls. The formula is fully transparent and shown in the Priority Actions section.
-
-```
-base = urgency × 10   (0–100)
-
-source_weight:
-  sales: 1.5 · email: 1.4 · support: 1.3 · zoom: 1.2
-  nps: 1.1 · github: 1.0 · discord: 0.8 · twitter: 0.7
-
-segment_weight:
-  enterprise: 1.3 · smb: 1.0 · startup: 0.9 · unknown: 0.9
-
-feedback_type_weight:
-  churn_risk: 1.4 · bug: 1.2 · complaint: 1.1 · comparison: 1.1
-  feature_request: 1.0 · question: 0.8 · praise: 0.7
-
-security_bonus  = security_sensitive ? +20 : 0
-competitor_bonus = comparison_type === 'switching_from' ? +15 : competitor_mentioned ? +5 : 0
-
-criticality = clamp(0, 100, round(base × source_weight × segment_weight × feedback_type_weight + security_bonus + competitor_bonus))
-```
-
-**Badge colors:** red ≥ 75 (critical), amber 45–74 (high), muted < 45 (standard)
-
-**Sanity checks:**
-- Sales / churn_risk / enterprise / urgency 9: `90 × 1.5 × 1.3 × 1.4 = 245.7 → clamped to 100` ✓
-- Twitter / praise / startup / urgency 3: `30 × 0.7 × 0.9 × 0.7 ≈ 13` ✓
-
----
-
-## Customer Sentiment Composite Score
-
-Replaces the raw "Negative" count card with a 0–100 composite health score. Computed client-side from `/api/stats`.
-
-```
-score = clamp(0, 100, round(((positive - negative×1.2 + neutral×0.4) / total) × 50 + 50))
-```
-
-Negative feedback is weighted 1.2× (more damaging than positive is beneficial). Neutral is weighted 0.4× (slight positive signal). The `×50+50` maps the result to a 0–100 scale centered at 50.
-
-**Color bands:** green ≥ 70 (healthy), amber 40–69 (at risk), red < 40 (critical)
-
-With the seed data (~36 negative, 18 positive, 6 neutral out of 60): expected score ≈ 30 → red band. This reflects the intentionally skewed seed data (45% negative) designed to surface PM pain points.
-
----
-
-## Segment Insights (`/api/segments`)
-
-New endpoint returning per-segment aggregations from the `analysis` table.
-
-**Response shape:**
-```json
-{
-  "segments": [
-    {
-      "segment": "enterprise",
-      "count": 17,
-      "avg_urgency": 7.2,
-      "negative_count": 9,
-      "competitor_count": 4,
-      "high_urgency_count": 6,
-      "top_product_category": "workers"
-    }
-  ]
-}
-```
-
-**Display name mapping:**
-| `segment` value | Display name |
-|---|---|
-| `enterprise` | Enterprise |
-| `smb` | Mid-Market |
-| `startup` | Emerging |
-| `unknown` | Unknown |
-
-**Caching:** KV key `dashboard:segments:v1`, TTL 300 seconds (5 minutes). Invalidated on `POST /api/seed`.
-
-**Query design:** Two D1 queries (mirrors `getThemes()` pattern). First query aggregates counts and averages per segment. Second query finds top product category per segment (D1 lacks reliable `FIRST_VALUE`/`FILTER` support, so JS post-processing picks the first result per segment from the already-sorted rows).
-
----
-
-## Geospatial Visualization — Not Implemented
-
-A geographic view was considered during design. The decision was **not to implement it**.
-
-**Reason:** No structured geographic field exists in the schema. The fields `source_type`, `customer_segment`, `account_tier`, and `stakeholder_type` have no geographic component. The string "eu-west" appears in the raw text and themes of approximately 2–3 records in the seed data — this is not queryable in a structured way and represents incidental geographic mention rather than a geographic attribute of the record.
-
-A geospatial view built on `LIKE '%eu%'` pattern matching would be entirely decorative (and inaccurate). Segment-based insights (Enterprise / Mid-Market / Emerging) are far more actionable for PMs and are backed by structured, queryable fields.
-
----
-
-## Terminology Reference
-
-| Location | Previous label | Current label |
-|---|---|---|
-| Product name | SignalDesk | PMI Dashboard |
-| Product subtitle | PM Feedback Intelligence | Voice of Customer |
-| Sidebar nav | Key Issues | Prioritization |
-| Page title / tab | Key Issues / Priority Issues | Prioritization |
-| Issues view heading | Key Issues / Priority Issues | Prioritization |
-| Issues view theme card | Issue Patterns | What's Trending |
-| Sidebar nav | Competitor Intel | Competitive Pressure |
-| Page title / tab | Competitor Intel | Competitive Pressure |
-| Competitors view heading | Competitor Intelligence | Competitive Pressure |
-| Sidebar nav | Security & Privacy | Security Issues |
-| Security view heading | Security & Privacy | Security Issues |
-| Stat card | Negative | *(replaced by Customer Sentiment)* |
-| Stat card | Competitor Mentions | Competitive Pressure |
-| Stat card | Total Feedback | Total Signals |
-| Overview alert strip | Action Required — High Urgency | Priority Actions — Needs PM Attention |
-| Topbar shortcut button | Weekly Digest | Prioritization |
-
----
-
-## Cloudflare Access Architecture
-
-Access wraps the Workers application at the Cloudflare edge. Unauthenticated requests redirect to a login page before the Worker processes them.
-
-**What Access handles:** Authentication, identity assertion, SSO (Google / GitHub / Cloudflare), session token validation.
-
-**What the application handles:** Content-level visibility rules (`visibility_scope`), PII redaction, route-level content restrictions. Access is a door-lock; the application is the content policy.
-
-**Proposed policy design:**
-```
-Application: SignalDesk
-URL: signaldesk.<account>.workers.dev
-
-Policy 1: Default internal access
-  Rule: Email domain = @cloudflare.com
-  Action: Allow
-
-Policy 2: Security-sensitive routes
-  Rule: Email in security-team group
-  Action: Allow + require WARP device posture
-  Applies to: /api/feedback?security_only=true
-```
-
-**Local testing gap:** `wrangler dev` does not simulate Access policy evaluation. See Friction Log #3.
-
----
-
-## Architecture Tradeoffs
-
-**Single Worker vs. microservices:** Everything runs in one Worker. This simplifies deployment (one `wrangler deploy`, one set of bindings) and eliminates service-to-service latency for the dashboard/API. The tradeoff is that the dashboard HTML (the largest component) increases the bundle size. Acceptable for an internal tool at this scale.
-
-**Pre-analyzed seed data vs. live AI on seed:** The 60 mock records are pre-analyzed (AI results stored in `seed.ts`). This makes the demo stable — it doesn't depend on Workers AI availability or response consistency during a demo. New feedback submitted via `POST /api/feedback` goes through the live AI pipeline.
-
-**Inline Workflow fallback:** If the Workflow trigger fails on `POST /api/feedback`, the handler falls back to inline synchronous AI analysis. This means no data loss on Workflow service disruptions, at the cost of blocking the HTTP response briefly.
-
-**KV caching vs. D1 query cost:** Stats queries aggregate across both tables with several SUMs and COUNTs. At 60 records this is instantaneous, but at scale (10k+ records) the query cost increases. The 5-minute KV cache means most dashboard loads are a single KV read instead of a D1 aggregate query. The cache is invalidated on every new feedback record processed through the Workflow.
-
-**Two-table D1 schema:** Separating `feedback` (raw + metadata) from `analysis` (AI output) allows re-running AI analysis on existing records without touching the original data. The `analysis` record can be overwritten if the model is updated or a record needs re-classification. The `feedback` record is immutable after insert.
-
----
-
-## Mock Seed Data
-
-60 pre-analyzed records across 8 source types:
-
-| Source | Count | Notes |
-|---|---|---|
-| github | 12 | Technical bugs, feature requests, repro steps |
-| discord | 10 | Community troubleshooting, education gaps |
-| support | 10 | Enterprise tickets, billing, reliability escalations |
-| email | 7 | Enterprise escalations, renewal risk, churn signals |
-| twitter | 7 | Public sentiment, outage mentions, competitor references |
-| nps | 6 | Structured scores (2 promoter / 2 passive / 2 detractor) + free-form |
-| zoom | 4 | Customer call snippets, churn signals, objections |
-| sales | 4 | Sales call notes, enterprise requirements, competitive deals |
-
-**Sentiment:** 45% negative, 30% neutral, 25% positive (reflects PM pain-point perspective).
-
-**Urgency distribution:** 14 records at urgency 8-10, 30 at 5-7, 16 at 1-4.
-
-**Special cases:**
-- Competitor mentions: 14 total (Fastly 5, Netlify 3, AWS Lambda@Edge 3, Akamai 2, Vercel 1)
-- PII detected: 9 records (emails, IPs, API keys in raw text — all scrubbed in summaries)
-- Security-sensitive: 6 records (WAF bypass, leaked key, compliance risk, incident escalation)
-- `visibility_scope = security_team_only`: 2 records
-- `visibility_scope = restricted`: 4 records
 
 ---
 
 ## Local Development
 
 ```bash
-npm install
-npx wrangler dev
+npm run dev
+# → http://localhost:8787
 
 # Seed local database
 curl -X POST http://localhost:8787/api/seed
-
-# View dashboard
-open http://localhost:8787
 ```
+
+> **Note:** Workflows retry behavior, R2 writes inside steps, and Access policy evaluation differ between local dev and production. See Friction Log below for specifics.
 
 ---
 
-## Deploy
+## API Reference
 
-```bash
-# Create D1 database
-npx wrangler d1 create signaldesk-db
-# → paste database_id into wrangler.toml
-
-# Apply schema
-npx wrangler d1 execute signaldesk-db --file ./schema.sql
-
-# Create KV namespace (requires both production and preview IDs)
-npx wrangler kv namespace create signaldesk-cache
-npx wrangler kv namespace create signaldesk-cache --preview
-# → paste id and preview_id into wrangler.toml
-
-# Create R2 bucket
-npx wrangler r2 bucket create signaldesk-raw
-
-# Deploy
-npx wrangler deploy
-
-# Seed remote database
-curl -X POST https://signaldesk.<account>.workers.dev/api/seed
-
-# Optional: configure Slack alerts
-npx wrangler secret put SLACK_WEBHOOK_URL
 ```
+GET  /                          Dashboard SPA
+POST /api/seed                  Insert 60 mock records (idempotent)
+POST /api/feedback              Submit feedback → triggers Workflow
+GET  /api/stats                 Aggregate stats (KV cached, X-Cache-Hit header)
+GET  /api/feedback              Paginated feed with filters:
+                                  source, sentiment, product_category, urgency_min,
+                                  competitor_only, security_only, pii_only, sort, limit, offset
+GET  /api/feedback/:id          Single record (visibility-scoped)
+GET  /api/feedback/:id/status   Workflow analysis status
+GET  /api/themes                Theme clusters (volume, urgency, sentiment per theme)
+GET  /api/competitors           Competitor mentions grouped by name + context
+GET  /api/timeline              Daily volume with negative/urgency breakdown (30 days)
+GET  /api/segments              Per-segment stats: Enterprise, Mid-Market, Emerging
+GET  /api/digest                AI PM digest (KV cached 1 hr)
+POST /api/digest/refresh        Force-regenerate digest
+```
+
+### Visibility scoping
+
+`GET /api/feedback/:id` applies content rules server-side:
+
+| `visibility_scope` | Behavior |
+|---|---|
+| `public` / `internal` | Full `raw_text` returned |
+| `restricted` | Returns `redacted_summary` only |
+| `security_team_only` | Returns a restricted notice string |
+
+PII-flagged records always use `redacted_summary` regardless of scope.
+
+---
+
+## Dashboard Views
+
+1. **Overview** — Priority Actions strip · 4-card exec summary · Trends · Segment Impact · What's Trending · PM Brief
+2. **Prioritization** — 5 auto-buckets (Core Gaps / Quick Wins / Strategic Bets / Long-Term / Delighters) + trending themes
+3. **Competitive Pressure** — Competitor cards with context, comparison type, and related product areas
+4. **Security Issues** — Restricted records, PII breakdown, visibility scope model
+5. **All Feedback** — Full paginated feed with filter/sort controls
+6. **Weekly Digest** — AI-generated PM digest with Regenerate button
+
+---
+
+## Scoring Models
+
+### Weighted Criticality Score (0–100, client-side)
+
+```
+base            = urgency × 10
+source_weight   = sales:1.5 · email:1.4 · support:1.3 · zoom:1.2 · nps:1.1 · github:1.0 · discord:0.8 · twitter:0.7
+segment_weight  = enterprise:1.3 · smb:1.0 · startup:0.9
+type_weight     = churn_risk:1.4 · bug:1.2 · complaint:1.1 · feature_request:1.0 · praise:0.7
+security_bonus  = security_sensitive ? +20 : 0
+competitor_bonus = switching_from ? +15 : competitor_mentioned ? +5 : 0
+
+score = clamp(0, 100, round(base × source_weight × segment_weight × type_weight + security_bonus + competitor_bonus))
+```
+
+Badge thresholds: red ≥ 75, amber 45–74, gray < 45.
+
+### Customer Sentiment Score (0–100, client-side)
+
+```
+score = clamp(0, 100, round(((positive − negative×1.2 + neutral×0.4) / total) × 50 + 50))
+```
+
+Green ≥ 70 (healthy), amber 40–69 (at risk), red < 40 (critical).
 
 ---
 
 ## File Structure
 
 ```
-signaldesk/
+pmi-dashboard/
 ├── wrangler.toml               # Bindings: D1, AI, KV, R2, Workflows
-├── schema.sql                  # D1 two-table schema + indexes
-├── README.md
+├── schema.sql                  # Two-table D1 schema
+├── package.json
+├── tsconfig.json
 └── src/
-    ├── index.ts                # Hono app, route mounting, Workflow named export
-    ├── types.ts                # Env interface, AnalysisResult, FeedbackWithAnalysis, TimelineEntry
-    ├── db/
-    │   ├── queries.ts          # D1 typed query helpers (seed, stats, feedback, themes, competitors, timeline)
-    │   └── seed.ts             # 60 mock records (pre-analyzed, all fields populated)
+    ├── index.ts                # Hono app entry, route mounting, Workflow export
+    ├── types.ts                # Env, AnalysisResult, FeedbackWithAnalysis, SegmentStat
     ├── ai/
-    │   ├── prompt.ts           # System prompt + per-source user prompt builder
-    │   └── parser.ts           # JSON parse, field validation/coercion, PII safety enforcement
-    ├── cache/
-    │   └── kv.ts               # KV get/set/invalidate, CACHE_KEYS, CACHE_TTL constants
+    │   ├── prompt.ts           # System prompt + per-source prompt builder
+    │   └── parser.ts           # JSON parse, field validation, PII redaction
     ├── alerts/
-    │   └── slack.ts            # Slack Block Kit alerting, PM routing table
-    ├── workflows/
-    │   └── ingest.ts           # FeedbackIngestWorkflow — 6 durable steps
-    └── routes/
-        ├── api.ts              # All /api/* endpoints + visibility redaction helpers
-        └── dashboard.ts        # GET / → single-file HTML (inlined CSS + JS, no bundler)
+    │   └── slack.ts            # Slack Block Kit alerts, PM routing table
+    ├── cache/
+    │   └── kv.ts               # KV get/set/invalidate, CACHE_KEYS, CACHE_TTL
+    ├── db/
+    │   ├── queries.ts          # Typed D1 query helpers
+    │   └── seed.ts             # 60 pre-analyzed mock records
+    ├── routes/
+    │   ├── api.ts              # All /api/* endpoints
+    │   └── dashboard.ts        # GET / → single-file HTML (inlined CSS/JS)
+    └── workflows/
+        └── ingest.ts           # FeedbackIngestWorkflow — 6 durable steps
 ```
 
 ---
 
 ## Friction Log
 
-Seven developer experience gaps discovered while building this project.
+Seven developer experience gaps found while building this project.
 
----
+**1. KV dual-ID requirement** — `wrangler dev` silently falls back to ephemeral in-memory KV when `preview_id` is missing. No warning. Data vanishes on restart. Fix: `wrangler kv namespace create <name> --preview`.
 
-### 1. KV Namespace Dual-ID Requirement
+**2. Workers AI model discovery** — No in-dashboard model catalog. Model IDs, capability metadata, and JSON-mode support are scattered across docs. Suggest: model catalog with capability cards in the Workers AI binding UI.
 
-**Problem:** `wrangler kv namespace create` generates a production `id`. Local `wrangler dev` requires a separate `preview_id` from a second `--preview` flag invocation. If `preview_id` is missing, wrangler silently falls back to an ephemeral in-memory store that doesn't persist across restarts — no warning, no error. KV writes appear to succeed. Data disappears on restart. Took significant debugging to identify because the failure mode was invisible.
+**3. Access local testing gap** — No way to simulate Access policy evaluation with `wrangler dev`. Auth flow requires a deployed URL. Suggest: `--mock-access-email` flag to inject a fake identity header locally.
 
-**Suggestion:** `wrangler dev` should emit a warning when a KV binding has `id` but no `preview_id`, and surface the exact command to fix it: `wrangler kv namespace create <name> --preview`. The silent in-memory fallback is an invisible footgun for first-time users.
+**4. Workflows local fidelity** — Retry behavior, step isolation, and sleep precision differ between local and production. No step-level trace in terminal. Suggest: `--workflows-verbose` mode mirroring the production dashboard execution log.
 
----
+**5. D1 JSON array querying** — `json_each()` behavior in D1 is undocumented. Array-membership filtering falls back to fragile `LIKE '%value%'` patterns. Suggest: dedicated D1 docs section on JSON field querying with worked examples.
 
-### 2. Workers AI Model Discovery
+**6. Bindings dashboard scatter** — D1, KV, R2, AI, and Workflows each live in separate dashboard sections with no unified resource overview. Suggest: "Worker Resources" page showing all bindings, status, and quick-links in one place.
 
-**Problem:** There is no model browser in the Cloudflare dashboard. Using Workers AI requires knowing the exact model ID string (e.g. `@cf/meta/llama-3.1-8b-instruct`) from documentation. No autocomplete in wrangler.toml. Model capability metadata — context window, JSON mode support, token throughput, recommended use cases — is scattered across multiple documentation pages and blog posts. The correct model for structured JSON extraction was identified only after testing several candidates.
-
-**Suggestion:** Add an in-dashboard model catalog with capability cards (input/output types, context length, benchmarks, example wrangler.toml binding). Surface it from the Workers AI binding configuration screen so developers can make informed model choices without leaving the dashboard.
-
----
-
-### 3. Cloudflare Access Local Testing Gap
-
-**Problem:** No way to test Access-protected routes with `wrangler dev`. Configuring an Access application requires a deployed Workers URL and Zero Trust dashboard setup. The local/production gap means auth flow cannot be validated until after deployment. No `--simulate-access` flag, no mock identity token support, no local policy evaluation.
-
-**Suggestion:** Provide a `wrangler dev` option (flag or plugin) that simulates Access policy evaluation using mock identity headers. Even `--mock-access-email=test@cloudflare.com` injecting a fake JWT would allow developers to test role-based routing, redirect behavior, and identity-gated content before deploying. The current gap forces a deploy-to-test cycle for any auth-sensitive code path.
-
----
-
-### 4. Workflows Local Dev Fidelity
-
-**Problem:** `wrangler dev` simulates Workflows locally, but retry behavior, step isolation, sleep durations, and execution timeout limits don't match production. A step that completes locally can fail in production due to different size and time limits. The local simulation doesn't expose the Workflows execution log visible in the production dashboard — no step-by-step trace appears in the terminal. Debugging a failing Workflow step required repeated production deployments.
-
-**Suggestion:** Add a `--workflows-verbose` mode to `wrangler dev` that prints step execution state to the terminal, matching what the dashboard shows in production. Document which Workflow behaviors differ between local and production (retry timing, step payload size limits, sleep precision). A local execution timeline would dramatically reduce the deploy-debug cycle.
-
----
-
-### 5. D1 JSON Array Querying
-
-**Problem:** Filtering records where a JSON array column contains a specific value (e.g., the `themes` column containing `"cold_start"`) requires `LIKE '%cold_start%'` in D1, rather than a proper array membership query. D1 documentation shows basic `json_extract()` examples but does not cover array filtering patterns. The `json_each()` function exists in SQLite but its behavior in D1's runtime is not documented. This produced fragile `LIKE`-based filters in the codebase that break on partial substring matches.
-
-**Suggestion:** Add a dedicated D1 documentation section on JSON field querying patterns, including array membership with `json_each()`, indexing JSON fields, and NULL handling. Worked examples for the patterns developers actually encounter (array contains, nested object access, range filters on JSON numbers) would prevent the fallback to fragile LIKE queries.
-
----
-
-### 6. Workers Dashboard Bindings Scatter
-
-**Problem:** After connecting a Worker to D1, KV, R2, Workers AI, and Workflows, the bindings are listed in Settings > Bindings — but each resource lives in a completely different dashboard section. Navigating from "check D1 table contents" to "view KV namespace" to "inspect R2 bucket" requires four separate navigation journeys. There is no unified resource overview showing health, usage, and quick-links for all attached bindings in one place.
-
-**Suggestion:** Create a unified "Worker Resources" page showing all bindings with inline status (storage used, request count, error rate) and single-click navigation to each resource's management page. This would eliminate the context switching that currently fragments the development workflow across multiple dashboard sections.
-
----
-
-### 7. R2 Writes Inside Workflow Steps
-
-**Problem:** Writing objects to R2 inside a Workflow step behaves differently in local development vs. production. In `wrangler dev`, `put()` inside a Workflow step appears to succeed (no exception, step completes), but the object is not actually persisted to local R2 storage. The same code works correctly in a regular Workers handler locally. The discrepancy was only discovered after deploying to production — making local testing of the R2 archive step impossible.
-
-**Suggestion:** Either make R2 writes inside Workflow steps fully functional in `wrangler dev`, or throw an explicit warning when an R2 operation inside a Workflow step cannot be simulated. Surfacing this in the Workflow execution log (see Friction Log #4) would immediately indicate when a step's side effects aren't being persisted during local development.
+**7. R2 writes inside Workflow steps** — R2 `put()` inside a Workflow step appears to succeed locally but does not persist. Same code works in a regular Workers handler. No warning. Only discoverable in production.

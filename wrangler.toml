@@ -13,26 +13,25 @@ database_id = "8c7c8b75-3019-4cff-8469-22fd4a46a343"
 [ai]
 binding = "AI"
 
-# ─── KV Namespace (cache) ──────────────────────────────────────────────────────
+# ─── KV Namespace ──────────────────────────────────────────────────────────────
 [[kv_namespaces]]
 binding = "CACHE"
-id = "edb9427f2b374eafa56699164c3ffdc3"          # Replace after: wrangler kv namespace create signaldesk-cache
-preview_id = "42a04541d7224080b3bac6bb10e9199c"  # Replace after: wrangler kv namespace create signaldesk-cache --preview
+id = "edb9427f2b374eafa56699164c3ffdc3"
+preview_id = "42a04541d7224080b3bac6bb10e9199c"
 
-# ─── R2 Bucket (raw payloads) ──────────────────────────────────────────────────
+# ─── R2 Bucket ─────────────────────────────────────────────────────────────────
 [[r2_buckets]]
 binding = "RAW_PAYLOADS"
-bucket_name = "signaldesk-raw"  # Replace after: wrangler r2 bucket create signaldesk-raw
+bucket_name = "signaldesk-raw"
 
 # ─── Workflows ─────────────────────────────────────────────────────────────────
 [[workflows]]
 binding = "INGEST_WORKFLOW"
 name = "feedback-ingest"
-class_name = "FeedbackIngestWorkflow"  # Must match named export in src/index.ts
+class_name = "FeedbackIngestWorkflow"
 script_name = "pmi-dashboard"
 
-# ─── Cloudflare Access (architecture reference — not locally testable) ──────────
-# Secure this Worker by creating an Access application at:
-#   dash.cloudflare.com → Zero Trust → Access → Applications
-# Policy: Email domain = @cloudflare.com
-# Optional: WARP posture check for security_team_only routes
+# ─── Cloudflare Access (not locally testable) ──────────────────────────────────
+# Configure at: dash.cloudflare.com → Zero Trust → Access → Applications
+# Policy: Email domain = @your-org.com
+# Optional: WARP device posture for security_team_only routes

@@ -1,4 +1,4 @@
--- SignalDesk D1 Schema
+-- PMI Dashboard D1 Schema
 -- Two-table design: feedback (raw + metadata) and analysis (AI output)
 -- Re-analysis can overwrite `analysis` without touching `feedback`
 
