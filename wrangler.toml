@@ -1,4 +1,4 @@
-name = "pmi-dashboard"
+name = "signaldesk"
 main = "src/index.ts"
 compatibility_date = "2025-11-01"
 compatibility_flags = ["nodejs_compat"]
