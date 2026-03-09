@@ -85,8 +85,8 @@ export async function sendUrgentAlert(
           {
             type: 'button',
             style: 'danger',
-            text: { type: 'plain_text', text: 'View in SignalDesk' },
-            url: 'https://signaldesk.ashar-0a8.workers.dev/',
+            text: { type: 'plain_text', text: 'View in PMI Dashboard' },
+            url: 'https://pmi-dashboard.ashar-0a8.workers.dev/',
           },
         ],
       },

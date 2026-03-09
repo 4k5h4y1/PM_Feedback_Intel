@@ -1,7 +1,7 @@
 {
-  "name": "signaldesk",
+  "name": "pmi-dashboard",
   "version": "1.0.0",
-  "description": "PM Feedback Intelligence Dashboard on Cloudflare Workers",
+  "description": "PMI Dashboard — Voice of Customer platform on Cloudflare Workers",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
