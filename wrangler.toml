@@ -1,4 +1,4 @@
-name = "signaldesk"
+name = "pmi-dashboard"
 main = "src/index.ts"
 compatibility_date = "2025-11-01"
 compatibility_flags = ["nodejs_compat"]
@@ -29,7 +29,7 @@ bucket_name = "signaldesk-raw"  # Replace after: wrangler r2 bucket create signa
 binding = "INGEST_WORKFLOW"
 name = "feedback-ingest"
 class_name = "FeedbackIngestWorkflow"  # Must match named export in src/index.ts
-script_name = "signaldesk"
+script_name = "pmi-dashboard"
 
 # ─── Cloudflare Access (architecture reference — not locally testable) ──────────
 # Secure this Worker by creating an Access application at:
